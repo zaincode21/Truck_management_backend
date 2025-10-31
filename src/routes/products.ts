@@ -111,31 +111,28 @@ router.get('/:id', async (req, res) => {
  *             type: object
  *             required:
  *               - name
- *               - category
- *               - unit_price
- *               - stock_quantity
+ *               - description
  *             properties:
  *               name:
  *                 type: string
  *                 example: 'Electronics Package'
+ *               description:
+ *                 type: string
+ *                 example: 'High-quality electronics package for delivery'
  *               category:
  *                 type: string
  *                 example: 'Electronics'
+ *                 nullable: true
  *               unit_price:
  *                 type: number
  *                 example: 25000
+ *                 nullable: true
  *               stock_quantity:
  *                 type: integer
  *                 example: 100
- *               description:
- *                 type: string
- *                 example: 'High-quality electronics package'
  *                 nullable: true
  *           example:
  *             name: 'Electronics Package'
- *             category: 'Electronics'
- *             unit_price: 25000
- *             stock_quantity: 100
  *             description: 'High-quality electronics package for delivery'
  *     responses:
  *       201:
@@ -153,18 +150,27 @@ router.get('/:id', async (req, res) => {
  */
 router.post('/', async (req, res) => {
   try {
+    // Validate required fields
+    if (!req.body.name || !req.body.description) {
+      return res.status(400).json({ error: 'Missing required fields: name and description are required' });
+    }
+
     const product = await prisma.product.create({
       data: {
-        name: req.body.name,
-        category: req.body.category,
-        unit_price: req.body.unit_price,
-        stock_quantity: req.body.stock_quantity,
-        description: req.body.description || null
+        name: req.body.name.trim(),
+        description: req.body.description.trim(),
+        ...(req.body.category && { category: req.body.category }),
+        ...(req.body.unit_price !== undefined && { unit_price: req.body.unit_price }),
+        ...(req.body.stock_quantity !== undefined && { stock_quantity: req.body.stock_quantity })
       }
     });
     res.status(201).json(product);
-  } catch (error) {
-    res.status(400).json({ error: 'Failed to create product' });
+  } catch (error: any) {
+    console.error('Error creating product:', error);
+    if (error.code === 'P2002') {
+      return res.status(400).json({ error: 'A product with this name already exists' });
+    }
+    res.status(400).json({ error: error.message || 'Failed to create product' });
   }
 });
 

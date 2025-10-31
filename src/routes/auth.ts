@@ -94,63 +94,74 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Demo credentials for testing
-    // In production, you would:
-    // 1. Hash passwords with bcrypt
-    // 2. Store users in database
-    // 3. Verify hashed passwords
-    const demoUsers = [
-      {
-        id: '1',
-        email: 'admin@truckflow.com',
-        password: 'admin123',
-        name: 'Admin User',
-        role: 'admin'
-      },
-      {
-        id: '2',
-        email: 'manager@truckflow.com',
-        password: 'manager123',
-        name: 'Manager User',
-        role: 'manager'
-      },
-      {
-        id: '3',
-        email: 'driver@truckflow.com',
-        password: 'driver123',
-        name: 'Driver User',
-        role: 'driver'
-      }
-    ];
+    // Check if it's an admin login (hardcoded admin credentials)
+    if (email === 'admin@truckflow.com' && password === 'admin123') {
+      const token = Buffer.from(`admin:${email}:${Date.now()}`).toString('base64');
+      const expiresIn = rememberMe ? '30d' : '1d';
 
-    // Find user
-    const user = demoUsers.find(u => u.email === email && u.password === password);
-
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        error: 'Invalid email or password'
+      return res.json({
+        success: true,
+        message: 'Login successful',
+        user: {
+          id: 'admin',
+          email: email,
+          name: 'Admin User',
+          role: 'admin'
+        },
+        token,
+        expiresIn
       });
     }
 
-    // Generate a simple token (in production, use JWT)
-    const token = Buffer.from(`${user.id}:${user.email}:${Date.now()}`).toString('base64');
+    // Check if it's an employee/driver login
+    // Password for all employees is "driver123"
+    if (password === 'driver123') {
+      const employee = await prisma.employee.findUnique({
+        where: { email: email.toLowerCase().trim() },
+        include: {
+          truck: true
+        }
+      });
 
-    // Set session duration based on rememberMe
-    const expiresIn = rememberMe ? '30d' : '1d';
+      if (!employee) {
+        return res.status(401).json({
+          success: false,
+          error: 'Invalid email or password'
+        });
+      }
 
-    // Return success response
-    res.json({
-      success: true,
-      message: 'Login successful',
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role
-      },
-      token,
-      expiresIn
+      // Check if employee is active
+      if (employee.status !== 'active') {
+        return res.status(403).json({
+          success: false,
+          error: 'Your account is not active. Please contact administrator.'
+        });
+      }
+
+      // Generate token for driver/employee
+      const token = Buffer.from(`employee:${employee.id}:${email}:${Date.now()}`).toString('base64');
+      const expiresIn = rememberMe ? '30d' : '1d';
+
+      return res.json({
+        success: true,
+        message: 'Login successful',
+        user: {
+          id: employee.id.toString(),
+          email: employee.email,
+          name: employee.name,
+          role: 'driver',
+          employee_id: employee.id,
+          truck_id: employee.truck_id
+        },
+        token,
+        expiresIn
+      });
+    }
+
+    // Invalid credentials
+    return res.status(401).json({
+      success: false,
+      error: 'Invalid email or password'
     });
 
   } catch (error) {
@@ -251,22 +262,53 @@ router.get('/verify', async (req, res) => {
 
     const token = authHeader.substring(7);
     
-    // In production, verify JWT token here
-    // For demo, decode the simple token
     try {
       const decoded = Buffer.from(token, 'base64').toString('utf-8');
-      const [userId, email] = decoded.split(':');
+      const parts = decoded.split(':');
+      
+      if (parts[0] === 'admin') {
+        // Admin user
+        return res.json({
+          success: true,
+          user: {
+            id: 'admin',
+            email: parts[1],
+            name: 'Admin User',
+            role: 'admin'
+          }
+        });
+      } else if (parts[0] === 'employee') {
+        // Employee/Driver user
+        const employeeId = parseInt(parts[1]);
+        const employee = await prisma.employee.findUnique({
+          where: { id: employeeId },
+          include: { truck: true }
+        });
 
-      // Mock user data (in production, fetch from database)
-      res.json({
-        success: true,
-        user: {
-          id: userId,
-          email: email,
-          name: 'Admin User',
-          role: 'admin'
+        if (!employee || employee.status !== 'active') {
+          return res.status(401).json({
+            success: false,
+            error: 'Employee not found or inactive'
+          });
         }
-      });
+
+        return res.json({
+          success: true,
+          user: {
+            id: employee.id.toString(),
+            email: employee.email,
+            name: employee.name,
+            role: 'driver',
+            employee_id: employee.id,
+            truck_id: employee.truck_id
+          }
+        });
+      } else {
+        return res.status(401).json({
+          success: false,
+          error: 'Invalid token format'
+        });
+      }
     } catch (error) {
       return res.status(401).json({
         success: false,
@@ -313,17 +355,51 @@ router.get('/me', async (req, res) => {
     
     try {
       const decoded = Buffer.from(token, 'base64').toString('utf-8');
-      const [userId, email] = decoded.split(':');
+      const parts = decoded.split(':');
+      
+      if (parts[0] === 'admin') {
+        // Admin user
+        return res.json({
+          success: true,
+          user: {
+            id: 'admin',
+            email: parts[1],
+            name: 'Admin User',
+            role: 'admin'
+          }
+        });
+      } else if (parts[0] === 'employee') {
+        // Employee/Driver user
+        const employeeId = parseInt(parts[1]);
+        const employee = await prisma.employee.findUnique({
+          where: { id: employeeId },
+          include: { truck: true }
+        });
 
-      res.json({
-        success: true,
-        user: {
-          id: userId,
-          email: email,
-          name: 'Admin User',
-          role: 'admin'
+        if (!employee || employee.status !== 'active') {
+          return res.status(401).json({
+            success: false,
+            error: 'Employee not found or inactive'
+          });
         }
-      });
+
+        return res.json({
+          success: true,
+          user: {
+            id: employee.id.toString(),
+            email: employee.email,
+            name: employee.name,
+            role: 'driver',
+            employee_id: employee.id,
+            truck_id: employee.truck_id
+          }
+        });
+      } else {
+        return res.status(401).json({
+          success: false,
+          error: 'Invalid token format'
+        });
+      }
     } catch (error) {
       return res.status(401).json({
         success: false,

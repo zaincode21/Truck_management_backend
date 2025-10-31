@@ -10,92 +10,92 @@ datasource db {
 }
 
 model Truck {
-  id            Int        @id @default(autoincrement())
-  license_plate String     @unique
+  id            Int       @id @default(autoincrement())
+  license_plate String    @unique
   model         String
   year          Int
   capacity      Float
-  status        String     @default("active") // active, maintenance, inactive
+  status        String    @default("active") // active, maintenance, inactive
   last_service  DateTime?
-  created_at    DateTime   @default(now())
-  updated_at    DateTime   @updatedAt
-  
-  deliveries    Delivery[]
-  expenses      Expense[]
-  employees     Employee[]
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  deliveries Delivery[]
+  expenses   Expense[]
+  employees  Employee[]
 
   @@map("trucks")
 }
 
 model Employee {
-  id             Int        @id @default(autoincrement())
+  id             Int      @id @default(autoincrement())
   name           String
-  email          String     @unique
+  email          String   @unique
   phone          String
-  license_number String     @unique
+  license_number String   @unique
   hire_date      DateTime
-  status         String     @default("active") // active, inactive
+  status         String   @default("active") // active, inactive
   truck_id       Int?
-  created_at     DateTime   @default(now())
-  updated_at     DateTime   @updatedAt
-  
-  truck          Truck?     @relation(fields: [truck_id], references: [id])
-  deliveries     Delivery[]
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  truck      Truck?     @relation(fields: [truck_id], references: [id])
+  deliveries Delivery[]
 
   @@map("employees")
 }
 
 model Product {
-  id             Int        @id @default(autoincrement())
+  id             Int      @id @default(autoincrement())
   name           String
-  category       String
-  unit_price     Float
-  stock_quantity Int
+  category       String?
+  unit_price     Float?
+  stock_quantity Int?
   description    String?
-  created_at     DateTime   @default(now())
-  updated_at     DateTime   @updatedAt
-  
-  deliveries     Delivery[]
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  deliveries Delivery[]
 
   @@map("products")
 }
 
 model Delivery {
-  id             Int      @id @default(autoincrement())
-  delivery_code  String   @unique
-  product_id     Int
-  car_id         Int
-  employee_id    Int
-  origin         String
-  destination    String
-  delivery_date  DateTime
-  status         String   @default("pending") // pending, in-transit, delivered, cancelled
-  cost           Float
-  fuel_cost      Float
-  price          Float
-  total_income   Float
-  notes          String?
-  created_at     DateTime @default(now())
-  updated_at     DateTime @updatedAt
-  
-  product        Product  @relation(fields: [product_id], references: [id])
-  truck          Truck    @relation(fields: [car_id], references: [id])
-  employee       Employee @relation(fields: [employee_id], references: [id])
+  id            Int      @id @default(autoincrement())
+  delivery_code String   @unique
+  product_id    Int
+  car_id        Int
+  employee_id   Int
+  origin        String
+  destination   String
+  delivery_date DateTime
+  status        String   @default("pending") // pending, in-transit, delivered, cancelled
+  cost          Float
+  fuel_cost     Float
+  price         Float
+  total_income  Float
+  notes         String?
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  product  Product  @relation(fields: [product_id], references: [id])
+  truck    Truck    @relation(fields: [car_id], references: [id])
+  employee Employee @relation(fields: [employee_id], references: [id])
 
   @@map("deliveries")
 }
 
 model Expense {
-  id            Int      @id @default(autoincrement())
-  car_id        Int
-  expense_type  String   // fuel, maintenance, repair, insurance, etc.
-  amount        Float
-  expense_date  DateTime
-  description   String?
-  created_at    DateTime @default(now())
-  updated_at    DateTime @updatedAt
-  
-  truck         Truck    @relation(fields: [car_id], references: [id])
+  id           Int      @id @default(autoincrement())
+  car_id       Int
+  expense_type String // fuel, maintenance, repair, insurance, etc.
+  amount       Float
+  expense_date DateTime
+  description  String?
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  truck Truck @relation(fields: [car_id], references: [id])
 
   @@map("expenses")
 }
