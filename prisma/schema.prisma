@@ -22,6 +22,7 @@ model Truck {
 
   deliveries Delivery[]
   expenses   Expense[]
+  fines      Fine[]
   employees  Employee[]
 
   @@map("trucks")
@@ -41,6 +42,7 @@ model Employee {
 
   truck      Truck?     @relation(fields: [truck_id], references: [id])
   deliveries Delivery[]
+  fines      Fine[]
 
   @@map("employees")
 }
@@ -98,4 +100,21 @@ model Expense {
   truck Truck @relation(fields: [car_id], references: [id])
 
   @@map("expenses")
+}
+
+model Fine {
+  id         Int      @id @default(autoincrement())
+  car_id     Int
+  employee_id Int
+  fine_type  String   // Rwanda National Police fine types
+  fine_date  DateTime  // timestamp
+  fine_cost  Float
+  description String?
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+
+  truck    Truck    @relation(fields: [car_id], references: [id])
+  employee Employee @relation(fields: [employee_id], references: [id])
+
+  @@map("fines")
 }

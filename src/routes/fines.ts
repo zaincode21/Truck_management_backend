@@ -1,0 +1,251 @@
+import { Router } from 'express';
+import { prisma } from '../lib/prisma';
+
+const router = Router();
+
+/**
+ * @swagger
+ * /api/fines:
+ *   get:
+ *     tags: [Fines]
+ *     summary: Get all fines
+ *     description: Retrieves a list of all fines with related truck and employee information
+ *     responses:
+ *       200:
+ *         description: List of fines retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Fine'
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/', async (req, res) => {
+  try {
+    const fines = await prisma.fine.findMany({
+      include: {
+        truck: true,
+        employee: true
+      },
+      orderBy: { fine_date: 'desc' }
+    });
+    res.json(fines);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch fines' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/fines/{id}:
+ *   get:
+ *     tags: [Fines]
+ *     summary: Get a specific fine
+ *     description: Retrieves detailed information about a specific fine including related truck and employee
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: Fine ID
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Fine retrieved successfully
+ *       404:
+ *         description: Fine not found
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/:id', async (req, res) => {
+  try {
+    const fine = await prisma.fine.findUnique({
+      where: { id: parseInt(req.params.id) },
+      include: {
+        truck: true,
+        employee: true
+      }
+    });
+    
+    if (!fine) {
+      return res.status(404).json({ error: 'Fine not found' });
+    }
+    
+    res.json(fine);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch fine' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/fines:
+ *   post:
+ *     tags: [Fines]
+ *     summary: Create a new fine
+ *     description: Creates a new fine in the system
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - car_id
+ *               - employee_id
+ *               - fine_type
+ *               - fine_date
+ *               - fine_cost
+ *             properties:
+ *               car_id:
+ *                 type: integer
+ *                 example: 1
+ *               employee_id:
+ *                 type: integer
+ *                 example: 1
+ *               fine_type:
+ *                 type: string
+ *                 enum: [speeding, parking, overloading, traffic-light, wrong-lane, missing-documents, seat-belt, mobile-phone, dui, vehicle-defect]
+ *                 example: 'speeding'
+ *               fine_date:
+ *                 type: string
+ *                 format: date-time
+ *                 example: '2025-11-01T00:00:00.000Z'
+ *               fine_cost:
+ *                 type: number
+ *                 example: 50000
+ *               description:
+ *                 type: string
+ *                 example: 'Speeding on highway'
+ *                 nullable: true
+ *     responses:
+ *       201:
+ *         description: Fine created successfully
+ *       400:
+ *         description: Invalid input data
+ */
+router.post('/', async (req, res) => {
+  try {
+    const fine = await prisma.fine.create({
+      data: {
+        car_id: parseInt(req.body.car_id),
+        employee_id: parseInt(req.body.employee_id),
+        fine_type: req.body.fine_type,
+        fine_date: new Date(req.body.fine_date),
+        fine_cost: parseFloat(req.body.fine_cost),
+        description: req.body.description || null
+      },
+      include: {
+        truck: true,
+        employee: true
+      }
+    });
+    res.status(201).json(fine);
+  } catch (error) {
+    console.error('Error creating fine:', error);
+    res.status(400).json({ error: 'Failed to create fine' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/fines/{id}:
+ *   put:
+ *     tags: [Fines]
+ *     summary: Update an fine
+ *     description: Updates an existing fine's information
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: Fine ID
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               car_id:
+ *                 type: integer
+ *               employee_id:
+ *                 type: integer
+ *               fine_type:
+ *                 type: string
+ *               fine_date:
+ *                 type: string
+ *                 format: date-time
+ *               fine_cost:
+ *                 type: number
+ *               description:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Fine updated successfully
+ *       400:
+ *         description: Invalid input data
+ *       404:
+ *         description: Fine not found
+ */
+router.put('/:id', async (req, res) => {
+  try {
+    const fine = await prisma.fine.update({
+      where: { id: parseInt(req.params.id) },
+      data: {
+        car_id: parseInt(req.body.car_id),
+        employee_id: parseInt(req.body.employee_id),
+        fine_type: req.body.fine_type,
+        fine_date: new Date(req.body.fine_date),
+        fine_cost: parseFloat(req.body.fine_cost),
+        description: req.body.description
+      },
+      include: {
+        truck: true,
+        employee: true
+      }
+    });
+    res.json(fine);
+  } catch (error) {
+    res.status(400).json({ error: 'Failed to update fine' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/fines/{id}:
+ *   delete:
+ *     tags: [Fines]
+ *     summary: Delete a fine
+ *     description: Deletes a fine from the system
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: Fine ID
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       204:
+ *         description: Fine deleted successfully
+ *       400:
+ *         description: Unable to delete fine
+ *       404:
+ *         description: Fine not found
+ */
+router.delete('/:id', async (req, res) => {
+  try {
+    await prisma.fine.delete({
+      where: { id: parseInt(req.params.id) }
+    });
+    res.status(204).send();
+  } catch (error) {
+    res.status(400).json({ error: 'Failed to delete fine' });
+  }
+});
+
+export default router;
+

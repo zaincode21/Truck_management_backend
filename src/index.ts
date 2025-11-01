@@ -6,6 +6,7 @@ import employeesRouter from './routes/employees';
 import productsRouter from './routes/products';
 import deliveriesRouter from './routes/deliveries';
 import expensesRouter from './routes/expenses';
+import finesRouter from './routes/fines';
 import dashboardRouter from './routes/dashboard';
 import authRouter from './routes/auth';
 import { specs, swaggerUi } from './config/swagger';
@@ -37,6 +38,7 @@ app.use('/api/employees', employeesRouter);
 app.use('/api/products', productsRouter);
 app.use('/api/deliveries', deliveriesRouter);
 app.use('/api/expenses', expensesRouter);
+app.use('/api/fines', finesRouter);
 app.use('/api/dashboard', dashboardRouter);
 
 /**
