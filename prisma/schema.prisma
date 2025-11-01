@@ -74,6 +74,7 @@ model Delivery {
   status        String   @default("pending") // pending, in-transit, delivered, cancelled
   cost          Float
   fuel_cost     Float
+  mileage_cost  Float    @default(0) // Money given to employee for the delivery
   price         Float
   total_income  Float
   notes         String?

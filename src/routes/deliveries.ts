@@ -299,6 +299,7 @@ router.post('/', async (req, res) => {
         status: req.body.status || 'pending',
         cost: parseFloat(req.body.cost),
         fuel_cost: parseFloat(req.body.fuel_cost),
+        mileage_cost: parseFloat(req.body.mileage_cost) || 0,
         price: parseFloat(req.body.price),
         total_income: parseFloat(req.body.total_income),
         notes: req.body.notes || null
@@ -418,6 +419,7 @@ router.put('/:id', async (req, res) => {
         status: req.body.status,
         cost: parseFloat(req.body.cost),
         fuel_cost: parseFloat(req.body.fuel_cost),
+        mileage_cost: parseFloat(req.body.mileage_cost) || 0,
         price: parseFloat(req.body.price),
         total_income: parseFloat(req.body.total_income),
         notes: req.body.notes
