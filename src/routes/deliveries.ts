@@ -112,7 +112,6 @@ router.get('/:id', async (req, res) => {
  *           schema:
  *             type: object
  *             required:
- *               - delivery_code
  *               - product_id
  *               - car_id
  *               - employee_id
@@ -125,7 +124,8 @@ router.get('/:id', async (req, res) => {
  *             properties:
  *               delivery_code:
  *                 type: string
- *                 example: 'DEL-2023-001'
+ *                 example: 'KIGALI-BUTARE-0001'
+ *                 description: 'Optional - will be auto-generated if not provided (format: ORIGIN-DESTINATION-4DIGIT)'
  *               product_id:
  *                 type: integer
  *                 example: 1
@@ -166,7 +166,6 @@ router.get('/:id', async (req, res) => {
  *                 example: 'Handle with care - fragile items'
  *                 nullable: true
  *           example:
- *             delivery_code: 'DEL-2023-001'
  *             product_id: 1
  *             car_id: 1
  *             employee_id: 1
@@ -193,17 +192,110 @@ router.get('/:id', async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
+// Helper function to generate delivery code
+function generateDeliveryCode(origin: string, destination: string): string {
+  // Clean and format origin (take first word, uppercase, remove special chars)
+  const originPart = origin
+    .trim()
+    .split(/[\s,-]+/)[0] // Take first word
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, ''); // Remove special chars
+  
+  // Clean and format destination (take first word, uppercase, remove special chars)
+  const destinationPart = destination
+    .trim()
+    .split(/[\s,-]+/)[0] // Take first word
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, ''); // Remove special chars
+  
+  // Combine: ORIGIN-DESTINATION
+  return `${originPart}-${destinationPart}`;
+}
+
+// Helper function to get next sequential number for origin-destination pair
+async function getNextDeliveryNumber(origin: string, destination: string): Promise<string> {
+  const codePrefix = generateDeliveryCode(origin, destination);
+  
+  // Find all deliveries with the same prefix
+  const existingDeliveries = await prisma.delivery.findMany({
+    where: {
+      delivery_code: {
+        startsWith: codePrefix
+      }
+    },
+    orderBy: {
+      delivery_code: 'desc'
+    }
+  });
+  
+  // Extract the highest number from existing codes
+  let maxNumber = 0;
+  existingDeliveries.forEach(delivery => {
+    const match = delivery.delivery_code.match(/-(\d{4})$/);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      if (num > maxNumber) {
+        maxNumber = num;
+      }
+    }
+  });
+  
+  // Return next number as 4-digit string (0001, 0002, etc.)
+  const nextNumber = (maxNumber + 1).toString().padStart(4, '0');
+  return `${codePrefix}-${nextNumber}`;
+}
+
+// Helper function to parse date from yyyy-MMM-dd format (e.g., 2025-Jan-15)
+function parseDate(dateString: string): Date {
+  // Check if date is in yyyy-MMM-dd format (e.g., 2025-Jan-15)
+  const yyyyMmmDdPattern = /^(\d{4})-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d{2})$/
+  const match = dateString.match(yyyyMmmDdPattern)
+  
+  if (match) {
+    const year = parseInt(match[1])
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    const month = monthNames.indexOf(match[2])
+    const day = parseInt(match[3])
+    
+    if (month !== -1 && day >= 1 && day <= 31) {
+      return new Date(year, month, day)
+    }
+  }
+  
+  // Fallback to standard date parsing
+  return new Date(dateString)
+}
+
 router.post('/', async (req, res) => {
   try {
+    // Auto-generate delivery code if not provided
+    let deliveryCode = req.body.delivery_code;
+    if (!deliveryCode || deliveryCode.trim() === '') {
+      if (!req.body.origin || !req.body.destination) {
+        return res.status(400).json({ error: 'Origin and destination are required to generate delivery code' });
+      }
+      deliveryCode = await getNextDeliveryNumber(req.body.origin, req.body.destination);
+    }
+    
+    // Validate that delivery code is unique
+    const existingDelivery = await prisma.delivery.findUnique({
+      where: { delivery_code: deliveryCode }
+    });
+    
+    if (existingDelivery) {
+      // If provided code exists, regenerate
+      deliveryCode = await getNextDeliveryNumber(req.body.origin, req.body.destination);
+    }
+
     const delivery = await prisma.delivery.create({
       data: {
-        delivery_code: req.body.delivery_code,
+        delivery_code: deliveryCode,
         product_id: parseInt(req.body.product_id),
         car_id: parseInt(req.body.car_id),
         employee_id: parseInt(req.body.employee_id),
         origin: req.body.origin,
         destination: req.body.destination,
-        delivery_date: new Date(req.body.delivery_date),
+        delivery_date: parseDate(req.body.delivery_date),
         status: req.body.status || 'pending',
         cost: parseFloat(req.body.cost),
         fuel_cost: parseFloat(req.body.fuel_cost),
@@ -219,7 +311,8 @@ router.post('/', async (req, res) => {
     });
     res.status(201).json(delivery);
   } catch (error) {
-    res.status(400).json({ error: 'Failed to create delivery' });
+    console.error('Error creating delivery:', error);
+    res.status(400).json({ error: 'Failed to create delivery', details: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -288,7 +381,7 @@ router.post('/', async (req, res) => {
  *                 example: 'Updated delivery notes'
  *                 nullable: true
  *           example:
- *             delivery_code: 'DEL-2023-001'
+ *             delivery_code: 'KIGALI-BUTARE-001'
  *             status: 'in-transit'
  *             cost: 15000
  *             fuel_cost: 8000
