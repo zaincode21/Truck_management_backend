@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../lib/prisma';
+import { authenticateUser, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
@@ -26,9 +27,20 @@ const router = Router();
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get('/', async (req, res) => {
+router.get('/', authenticateUser, async (req: AuthRequest, res) => {
   try {
+    const user = req.user;
+    
+    // Build query with filtering for drivers
+    const where: any = {};
+    
+    // If user is a driver, only show expenses for their assigned truck
+    if (user && user.role === 'driver' && user.truck_id) {
+      where.car_id = user.truck_id;
+    }
+    
     const expenses = await prisma.expense.findMany({
+      where,
       include: {
         truck: true
       },
@@ -75,10 +87,13 @@ router.get('/', async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get('/:id', async (req, res) => {
+router.get('/:id', authenticateUser, async (req: AuthRequest, res) => {
   try {
+    const user = req.user;
+    const expenseId = parseInt(req.params.id);
+    
     const expense = await prisma.expense.findUnique({
-      where: { id: parseInt(req.params.id) },
+      where: { id: expenseId },
       include: {
         truck: true
       }
@@ -86,6 +101,13 @@ router.get('/:id', async (req, res) => {
     
     if (!expense) {
       return res.status(404).json({ error: 'Expense not found' });
+    }
+    
+    // Check if driver can access this expense
+    if (user && user.role === 'driver' && user.truck_id) {
+      if (expense.car_id !== user.truck_id) {
+        return res.status(403).json({ error: 'You can only view expenses for your assigned truck' });
+      }
     }
     
     res.json(expense);
@@ -151,8 +173,15 @@ router.get('/:id', async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post('/', async (req, res) => {
+router.post('/', authenticateUser, async (req: AuthRequest, res) => {
   try {
+    const user = req.user;
+    
+    // For drivers, force their truck_id
+    if (user && user.role === 'driver' && user.truck_id) {
+      req.body.car_id = user.truck_id;
+    }
+    
     const expense = await prisma.expense.create({
       data: {
         car_id: parseInt(req.body.car_id),
@@ -233,8 +262,29 @@ router.post('/', async (req, res) => {
  *       404:
  *         description: Expense not found
  */
-router.put('/:id', async (req, res) => {
+router.put('/:id', authenticateUser, async (req: AuthRequest, res) => {
   try {
+    const user = req.user;
+    const expenseId = parseInt(req.params.id);
+    
+    // Check if expense exists and belongs to driver's truck
+    if (user && user.role === 'driver' && user.truck_id) {
+      const existingExpense = await prisma.expense.findUnique({
+        where: { id: expenseId }
+      });
+      
+      if (!existingExpense) {
+        return res.status(404).json({ error: 'Expense not found' });
+      }
+      
+      if (existingExpense.car_id !== user.truck_id) {
+        return res.status(403).json({ error: 'You can only edit expenses for your assigned truck' });
+      }
+      
+      // Force driver's truck_id
+      req.body.car_id = user.truck_id;
+    }
+    
     const expense = await prisma.expense.update({
       where: { id: parseInt(req.params.id) },
       data: {
@@ -281,10 +331,28 @@ router.put('/:id', async (req, res) => {
  *       404:
  *         description: Expense not found
  */
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authenticateUser, async (req: AuthRequest, res) => {
   try {
+    const user = req.user;
+    const expenseId = parseInt(req.params.id);
+    
+    // Check if expense exists and belongs to driver's truck
+    if (user && user.role === 'driver' && user.truck_id) {
+      const existingExpense = await prisma.expense.findUnique({
+        where: { id: expenseId }
+      });
+      
+      if (!existingExpense) {
+        return res.status(404).json({ error: 'Expense not found' });
+      }
+      
+      if (existingExpense.car_id !== user.truck_id) {
+        return res.status(403).json({ error: 'You can only delete expenses for your assigned truck' });
+      }
+    }
+    
     await prisma.expense.delete({
-      where: { id: parseInt(req.params.id) }
+      where: { id: expenseId }
     });
     res.status(204).send();
   } catch (error) {

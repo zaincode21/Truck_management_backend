@@ -36,6 +36,8 @@ model Employee {
   license_number String   @unique
   hire_date      DateTime
   status         String   @default("active") // active, inactive
+  role           String   @default("driver") // admin, driver
+  password       String?  // Hashed password (optional for backward compatibility)
   truck_id       Int?
   created_at     DateTime @default(now())
   updated_at     DateTime @updatedAt
