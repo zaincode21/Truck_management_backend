@@ -116,12 +116,12 @@ router.post('/login', async (req, res) => {
 
     // Check if it's an employee/driver login
     // Try to find employee by email
-    const employee = await prisma.employee.findUnique({
-      where: { email: email.toLowerCase().trim() },
-      include: {
-        truck: true
-      }
-    });
+      const employee = await prisma.employee.findUnique({
+        where: { email: email.toLowerCase().trim() },
+        include: {
+          truck: true
+        }
+      });
 
     if (employee) {
       // Check if employee has a password set
@@ -138,10 +138,10 @@ router.post('/login', async (req, res) => {
       } else {
         // Backward compatibility: check default password "driver123"
         if (password !== 'driver123') {
-          return res.status(401).json({
-            success: false,
-            error: 'Invalid email or password'
-          });
+        return res.status(401).json({
+          success: false,
+          error: 'Invalid email or password'
+        });
         }
       }
 
