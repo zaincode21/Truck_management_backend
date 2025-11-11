@@ -20,10 +20,11 @@ model Truck {
   created_at    DateTime  @default(now())
   updated_at    DateTime  @updatedAt
 
-  deliveries Delivery[]
-  expenses   Expense[]
-  fines      Fine[]
-  employees  Employee[]
+  deliveries    Delivery[]
+  expenses      Expense[]
+  fines         Fine[]
+  employees     Employee[]
+  otherExpenses OtherExpense[]
 
   @@map("trucks")
 }
@@ -37,7 +38,7 @@ model Employee {
   hire_date      DateTime
   status         String   @default("active") // active, inactive
   role           String   @default("driver") // admin, driver
-  password       String?  // Hashed password (optional for backward compatibility)
+  password       String? // Hashed password (optional for backward compatibility)
   truck_id       Int?
   created_at     DateTime @default(now())
   updated_at     DateTime @updatedAt
@@ -73,19 +74,23 @@ model Delivery {
   origin        String
   destination   String
   delivery_date DateTime
-  status        String   @default("pending") // pending, in-transit, delivered, cancelled
+  status        String   @default("pending") // pending, delivered
   cost          Float
   fuel_cost     Float
   mileage_cost  Float    @default(0) // Money given to employee for the delivery
+  tax           Float    @default(0) // Tax percentage (e.g., 18 for 18%)
   price         Float
   total_income  Float
   notes         String?
   created_at    DateTime @default(now())
   updated_at    DateTime @updatedAt
 
-  product  Product  @relation(fields: [product_id], references: [id])
-  truck    Truck    @relation(fields: [car_id], references: [id])
-  employee Employee @relation(fields: [employee_id], references: [id])
+  product  Product   @relation(fields: [product_id], references: [id])
+  truck    Truck     @relation(fields: [car_id], references: [id])
+  employee Employee  @relation(fields: [employee_id], references: [id])
+  expenses      Expense[]
+  fines         Fine[]
+  otherExpenses OtherExpense[]
 
   @@map("deliveries")
 }
@@ -93,6 +98,7 @@ model Delivery {
 model Expense {
   id           Int      @id @default(autoincrement())
   car_id       Int
+  delivery_id  Int? // Optional - link to specific delivery
   expense_type String // fuel, maintenance, repair, insurance, etc.
   amount       Float
   expense_date DateTime
@@ -100,24 +106,52 @@ model Expense {
   created_at   DateTime @default(now())
   updated_at   DateTime @updatedAt
 
-  truck Truck @relation(fields: [car_id], references: [id])
+  truck         Truck         @relation(fields: [car_id], references: [id])
+  delivery      Delivery?     @relation(fields: [delivery_id], references: [id])
+  otherExpense  OtherExpense?
 
   @@map("expenses")
 }
 
-model Fine {
-  id         Int      @id @default(autoincrement())
-  car_id     Int
-  employee_id Int
-  fine_type  String   // Rwanda National Police fine types
-  fine_date  DateTime  // timestamp
-  fine_cost  Float
-  description String?
-  created_at DateTime  @default(now())
-  updated_at DateTime  @updatedAt
+enum PayStatus {
+  paid
+  unpaid
+}
 
-  truck    Truck    @relation(fields: [car_id], references: [id])
-  employee Employee @relation(fields: [employee_id], references: [id])
+model Fine {
+  id          Int       @id @default(autoincrement())
+  car_id      Int
+  employee_id Int
+  delivery_id Int? // Optional - link to specific delivery
+  fine_type   String // Rwanda National Police fine types
+  fine_date   DateTime // timestamp
+  fine_cost   Float
+  pay_status  PayStatus @default(unpaid) // Payment status: paid or unpaid
+  description String?
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+
+  truck    Truck     @relation(fields: [car_id], references: [id])
+  employee Employee  @relation(fields: [employee_id], references: [id])
+  delivery Delivery? @relation(fields: [delivery_id], references: [id])
 
   @@map("fines")
+}
+
+model OtherExpense {
+  id           Int      @id @default(autoincrement())
+  car_id       Int
+  delivery_id  Int? // Optional - link to specific delivery
+  expense_id   Int      @unique // Link to the original expense
+  amount       Float
+  expense_date DateTime
+  description  String?
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  truck    Truck     @relation(fields: [car_id], references: [id])
+  delivery Delivery? @relation(fields: [delivery_id], references: [id])
+  expense  Expense   @relation(fields: [expense_id], references: [id], onDelete: Cascade)
+
+  @@map("other_expenses")
 }

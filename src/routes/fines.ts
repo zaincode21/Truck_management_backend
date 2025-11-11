@@ -39,7 +39,8 @@ router.get('/', authenticateUser, async (req: AuthRequest, res) => {
       where,
       include: {
         truck: true,
-        employee: true
+        employee: true,
+        delivery: true
       },
       orderBy: { fine_date: 'desc' }
     });
@@ -80,7 +81,8 @@ router.get('/:id', authenticateUser, async (req: AuthRequest, res) => {
       where: { id: fineId },
       include: {
         truck: true,
-        employee: true
+        employee: true,
+        delivery: true
       }
     });
     
@@ -165,14 +167,17 @@ router.post('/', authenticateUser, async (req: AuthRequest, res) => {
       data: {
         car_id: parseInt(req.body.car_id),
         employee_id: parseInt(req.body.employee_id),
+        delivery_id: req.body.delivery_id ? parseInt(req.body.delivery_id) : null,
         fine_type: req.body.fine_type,
         fine_date: new Date(req.body.fine_date),
         fine_cost: parseFloat(req.body.fine_cost),
+        pay_status: req.body.pay_status || 'unpaid', // Default to unpaid if not provided
         description: req.body.description || null
       },
       include: {
         truck: true,
-        employee: true
+        employee: true,
+        delivery: true
       }
     });
     res.status(201).json(fine);
@@ -250,19 +255,28 @@ router.put('/:id', authenticateUser, async (req: AuthRequest, res) => {
       }
     }
     
+    const updateData: any = {
+      car_id: parseInt(req.body.car_id),
+      employee_id: parseInt(req.body.employee_id),
+      delivery_id: req.body.delivery_id ? parseInt(req.body.delivery_id) : null,
+      fine_type: req.body.fine_type,
+      fine_date: new Date(req.body.fine_date),
+      fine_cost: parseFloat(req.body.fine_cost),
+      description: req.body.description
+    };
+    
+    // Only update pay_status if provided
+    if (req.body.pay_status !== undefined) {
+      updateData.pay_status = req.body.pay_status;
+    }
+    
     const fine = await prisma.fine.update({
       where: { id: parseInt(req.params.id) },
-      data: {
-        car_id: parseInt(req.body.car_id),
-        employee_id: parseInt(req.body.employee_id),
-        fine_type: req.body.fine_type,
-        fine_date: new Date(req.body.fine_date),
-        fine_cost: parseFloat(req.body.fine_cost),
-        description: req.body.description
-      },
+      data: updateData,
       include: {
         truck: true,
-        employee: true
+        employee: true,
+        delivery: true
       }
     });
     res.json(fine);

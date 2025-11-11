@@ -134,7 +134,6 @@ router.get('/:id', async (req, res) => {
  *               - email
  *               - hire_date
  *               - license_number
- *               - truck_id
  *             properties:
  *               name:
  *                 type: string
@@ -190,12 +189,10 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields: name, email, phone, license_number, hire_date' });
     }
 
-    // Validate truck_id is provided and not null
-    if (!req.body.truck_id) {
-      return res.status(400).json({ error: 'Truck assignment is required. Please select a truck for this employee.' });
-    }
-
-    const truckId = parseInt(req.body.truck_id);
+    // truck_id is optional - validate only if provided
+    let truckId = null;
+    if (req.body.truck_id) {
+      truckId = parseInt(req.body.truck_id);
     
     // Check if truck exists and is not already assigned
     const truck = await prisma.truck.findUnique({
@@ -211,6 +208,7 @@ router.post('/', async (req, res) => {
 
     if (truck.employees && truck.employees.length > 0) {
       return res.status(400).json({ error: `This truck is already assigned to another employee. Please select a different truck.` });
+      }
     }
 
     const employee = await prisma.employee.create({

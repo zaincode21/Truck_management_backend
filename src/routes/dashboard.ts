@@ -48,7 +48,10 @@ router.get('/stats', async (req, res) => {
       prisma.delivery.count({ where: { status: 'in-transit' } }),
       prisma.delivery.count({ where: { status: 'delivered' } }),
       prisma.product.count(),
-      prisma.expense.aggregate({ _sum: { amount: true } }),
+      prisma.expense.aggregate({ 
+        where: { expense_type: { not: 'other' } },
+        _sum: { amount: true } 
+      }),
       prisma.delivery.aggregate({ _sum: { total_income: true } })
     ]);
 
