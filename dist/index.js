@@ -13,6 +13,7 @@ const deliveries_1 = __importDefault(require("./routes/deliveries"));
 const expenses_1 = __importDefault(require("./routes/expenses"));
 const fines_1 = __importDefault(require("./routes/fines"));
 const dashboard_1 = __importDefault(require("./routes/dashboard"));
+const analytics_1 = __importDefault(require("./routes/analytics"));
 const auth_1 = __importDefault(require("./routes/auth"));
 const swagger_1 = require("./config/swagger");
 dotenv_1.default.config();
@@ -22,23 +23,10 @@ const PORT = process.env.PORT || 5000;
 const allowedOrigins = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
     : ['http://localhost:3000', 'http://127.0.0.1:3000'];
-app.use((0, cors_1.default)({
-    origin: (origin, callback) => {
-        // Allow requests with no origin (like mobile apps or curl requests)
-        if (!origin)
-            return callback(null, true);
-        if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
-            callback(null, true);
-        }
-        else {
-            callback(new Error('Not allowed by CORS'));
-        }
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
-}));
+// 
 app.use(express_1.default.json());
+//cors configuration
+app.use((0, cors_1.default)());
 app.use(express_1.default.urlencoded({ extended: true }));
 // Swagger Documentation
 app.use('/api-docs', swagger_1.swaggerUi.serve, swagger_1.swaggerUi.setup(swagger_1.specs, {
@@ -55,6 +43,7 @@ app.use('/api/deliveries', deliveries_1.default);
 app.use('/api/expenses', expenses_1.default);
 app.use('/api/fines', fines_1.default);
 app.use('/api/dashboard', dashboard_1.default);
+app.use('/api/analytics', analytics_1.default);
 /**
  * @swagger
  * /health:

@@ -8,6 +8,7 @@ import deliveriesRouter from './routes/deliveries';
 import expensesRouter from './routes/expenses';
 import finesRouter from './routes/fines';
 import dashboardRouter from './routes/dashboard';
+import analyticsRouter from './routes/analytics';
 import authRouter from './routes/auth';
 import { specs, swaggerUi } from './config/swagger';
 
@@ -24,6 +25,7 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
 // 
 
 app.use(express.json());
+//cors configuration
 app.use(cors());
 app.use(express.urlencoded({ extended: true }));
 
@@ -43,6 +45,7 @@ app.use('/api/deliveries', deliveriesRouter);
 app.use('/api/expenses', expensesRouter);
 app.use('/api/fines', finesRouter);
 app.use('/api/dashboard', dashboardRouter);
+app.use('/api/analytics', analyticsRouter);
 
 /**
  * @swagger
