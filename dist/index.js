@@ -14,7 +14,6 @@ const expenses_1 = __importDefault(require("./routes/expenses"));
 const fines_1 = __importDefault(require("./routes/fines"));
 const dashboard_1 = __importDefault(require("./routes/dashboard"));
 const auth_1 = __importDefault(require("./routes/auth"));
-const users_1 = __importDefault(require("./routes/users"));
 const swagger_1 = require("./config/swagger");
 dotenv_1.default.config();
 const app = (0, express_1.default)();
@@ -49,7 +48,6 @@ app.use('/api-docs', swagger_1.swaggerUi.serve, swagger_1.swaggerUi.setup(swagge
 }));
 // Routes
 app.use('/api/auth', auth_1.default);
-app.use('/api/users', users_1.default);
 app.use('/api/trucks', trucks_1.default);
 app.use('/api/employees', employees_1.default);
 app.use('/api/products', products_1.default);

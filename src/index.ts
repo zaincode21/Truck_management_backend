@@ -9,7 +9,6 @@ import expensesRouter from './routes/expenses';
 import finesRouter from './routes/fines';
 import dashboardRouter from './routes/dashboard';
 import authRouter from './routes/auth';
-import usersRouter from './routes/users';
 import { specs, swaggerUi } from './config/swagger';
 
 dotenv.config();
@@ -49,7 +48,6 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, {
 
 // Routes
 app.use('/api/auth', authRouter);
-app.use('/api/users', usersRouter);
 app.use('/api/trucks', trucksRouter);
 app.use('/api/employees', employeesRouter);
 app.use('/api/products', productsRouter);
