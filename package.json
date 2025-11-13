@@ -6,12 +6,15 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
+    "build:render": "prisma generate && npm run build",
+    "postinstall": "prisma generate",
     "start": "node dist/index.js",
     "test:api": "./test-api.sh",
     "health": "curl -f http://localhost:5000/health || echo 'Server is not running on port 5000'",
     "docs": "echo 'API Documentation available at http://localhost:5000/api-docs when server is running'",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
+    "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "prisma:seed": "tsx prisma/seed.ts"
   },

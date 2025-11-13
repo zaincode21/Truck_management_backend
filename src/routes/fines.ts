@@ -256,13 +256,13 @@ router.put('/:id', authenticateUser, async (req: AuthRequest, res) => {
     }
     
     const updateData: any = {
-      car_id: parseInt(req.body.car_id),
-      employee_id: parseInt(req.body.employee_id),
+        car_id: parseInt(req.body.car_id),
+        employee_id: parseInt(req.body.employee_id),
       delivery_id: req.body.delivery_id ? parseInt(req.body.delivery_id) : null,
-      fine_type: req.body.fine_type,
-      fine_date: new Date(req.body.fine_date),
-      fine_cost: parseFloat(req.body.fine_cost),
-      description: req.body.description
+        fine_type: req.body.fine_type,
+        fine_date: new Date(req.body.fine_date),
+        fine_cost: parseFloat(req.body.fine_cost),
+        description: req.body.description
     };
     
     // Only update pay_status if provided
