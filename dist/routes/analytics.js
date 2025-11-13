@@ -16,7 +16,7 @@ const router = (0, express_1.Router)();
  *         schema:
  *           type: string
  *           enum: [7d, 30d, 90d, 1y, all]
- *         description: Time period for analytics (default: 30d)
+ *         description: Time period for analytics (default is 30d)
  *     responses:
  *       200:
  *         description: Analytics data retrieved successfully

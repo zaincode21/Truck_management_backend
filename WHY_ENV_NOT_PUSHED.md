@@ -78,3 +78,4 @@ This means Git is correctly ignoring your `.env` file! ✅
 Your setup is correct! Just set the environment variables in Render's dashboard instead of pushing the `.env` file.
 
 
+
