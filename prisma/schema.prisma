@@ -29,19 +29,27 @@ model Truck {
   @@map("trucks")
 }
 
+enum EmployeeRole {
+  driver
+  turnboy
+  admin
+  views
+}
+
 model Employee {
-  id             Int      @id @default(autoincrement())
+  id             Int          @id @default(autoincrement())
   name           String
-  email          String   @unique
+  email          String       @unique
   phone          String
-  license_number String   @unique
+  license_number String       @unique
   hire_date      DateTime
-  status         String   @default("active") // active, inactive
-  role           String   @default("driver") // admin, driver
+  status         String       @default("active") // active, inactive
+  role           EmployeeRole @default(driver)
+  salary         Float        @default(0)
   password       String? // Hashed password (optional for backward compatibility)
   truck_id       Int?
-  created_at     DateTime @default(now())
-  updated_at     DateTime @updatedAt
+  created_at     DateTime     @default(now())
+  updated_at     DateTime     @updatedAt
 
   truck      Truck?     @relation(fields: [truck_id], references: [id])
   deliveries Delivery[]

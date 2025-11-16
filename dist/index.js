@@ -24,10 +24,23 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
     : ['http://localhost:3000', 'http://127.0.0.1:3000'];
 // 
-app.use(express_1.default.json());
-//cors configuration
+// JSON body parser with error handling
+app.use(express_1.default.json({
+    limit: '10mb'
+}));
+// CORS configuration
 app.use((0, cors_1.default)());
 app.use(express_1.default.urlencoded({ extended: true }));
+// Handle JSON parsing errors
+app.use((err, req, res, next) => {
+    if (err instanceof SyntaxError && 'body' in err) {
+        return res.status(400).json({
+            error: 'Invalid JSON',
+            message: 'The request body contains invalid JSON'
+        });
+    }
+    next(err);
+});
 // Swagger Documentation
 app.use('/api-docs', swagger_1.swaggerUi.serve, swagger_1.swaggerUi.setup(swagger_1.specs, {
     explorer: true,
@@ -44,6 +57,13 @@ app.use('/api/expenses', expenses_1.default);
 app.use('/api/fines', fines_1.default);
 app.use('/api/dashboard', dashboard_1.default);
 app.use('/api/analytics', analytics_1.default);
+// 404 handler for unknown routes
+app.use((req, res) => {
+    res.status(404).json({
+        error: 'Not Found',
+        message: `Route ${req.method} ${req.path} not found`
+    });
+});
 /**
  * @swagger
  * /health:
@@ -68,12 +88,22 @@ app.use('/api/analytics', analytics_1.default);
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
-// Error handling middleware
+// Global error handling middleware (must be last)
 app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).json({
-        error: 'Something went wrong!',
-        message: process.env.NODE_ENV === 'development' ? err.message : undefined
+    // Don't send response if headers already sent
+    if (res.headersSent) {
+        return next(err);
+    }
+    console.error('Global error handler:', {
+        message: err.message,
+        stack: err.stack,
+        url: req.url,
+        method: req.method
+    });
+    const status = err.status || err.statusCode || 500;
+    res.status(status).json({
+        error: err.message || 'Something went wrong!',
+        message: process.env.NODE_ENV === 'development' ? err.message : 'An error occurred'
     });
 });
 app.listen(PORT, () => {

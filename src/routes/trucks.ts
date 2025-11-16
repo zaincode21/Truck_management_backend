@@ -218,7 +218,7 @@ router.post('/', async (req, res) => {
     });
     res.status(201).json(truck);
   } catch (error: any) {
-    console.error('Error creating truck:', error);
+    console.error('Error creating truck:', error.message);
     
     // Handle unique constraint violation (duplicate license plate)
     if (error.code === 'P2002') {
@@ -228,7 +228,7 @@ router.post('/', async (req, res) => {
     }
     
     res.status(400).json({ 
-      error: 'Failed to create truck',
+      error: 'Failed to create truck'+error.message,
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }

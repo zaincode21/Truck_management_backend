@@ -45,6 +45,8 @@ router.get('/', async (req, res) => {
             },
             orderBy: { created_at: 'desc' }
         });
+        // Debug: Verify salary is included in response
+        console.log('Employees with salary:', employees.map(e => ({ id: e.id, name: e.name, salary: e.salary })));
         res.json(employees);
     }
     catch (error) {
@@ -132,6 +134,8 @@ router.get('/:id', async (req, res) => {
  *               - email
  *               - hire_date
  *               - license_number
+ *               - role
+ *               - salary
  *             properties:
  *               name:
  *                 type: string
@@ -154,6 +158,13 @@ router.get('/:id', async (req, res) => {
  *               license_number:
  *                 type: string
  *                 example: 'DL123456789'
+ *               role:
+ *                 type: string
+ *                 enum: [driver, turnboy, admin, views]
+ *                 example: 'driver'
+ *               salary:
+ *                 type: number
+ *                 example: 500000
  *               truck_id:
  *                 type: integer
  *                 example: 1
@@ -165,6 +176,8 @@ router.get('/:id', async (req, res) => {
  *             hire_date: '2023-01-15'
  *             status: 'active'
  *             license_number: 'DL123456789'
+ *             role: 'driver'
+ *             salary: 500000
  *             truck_id: 1
  *     responses:
  *       201:
@@ -183,8 +196,18 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
     try {
         // Validate required fields
-        if (!req.body.name || !req.body.email || !req.body.phone || !req.body.license_number || !req.body.hire_date) {
-            return res.status(400).json({ error: 'Missing required fields: name, email, phone, license_number, hire_date' });
+        if (!req.body.name || !req.body.email || !req.body.phone || !req.body.license_number || !req.body.hire_date || !req.body.role || req.body.salary === undefined) {
+            return res.status(400).json({ error: 'Missing required fields: name, email, phone, license_number, hire_date, role, salary' });
+        }
+        // Validate role
+        const validRoles = ['driver', 'turnboy', 'admin', 'views'];
+        if (!validRoles.includes(req.body.role)) {
+            return res.status(400).json({ error: `Invalid role. Must be one of: ${validRoles.join(', ')}` });
+        }
+        // Validate salary is a positive number
+        const salary = parseFloat(req.body.salary);
+        if (isNaN(salary) || salary < 0) {
+            return res.status(400).json({ error: 'Salary must be a positive number' });
         }
         // truck_id is optional - validate only if provided
         let truckId = null;
@@ -212,6 +235,8 @@ router.post('/', async (req, res) => {
                 license_number: req.body.license_number.trim(),
                 hire_date: new Date(req.body.hire_date),
                 status: req.body.status || 'active',
+                role: req.body.role,
+                salary: salary,
                 truck_id: truckId
             },
             include: {
@@ -299,17 +324,34 @@ router.post('/', async (req, res) => {
  */
 router.put('/:id', async (req, res) => {
     try {
+        const updateData = {
+            name: req.body.name,
+            email: req.body.email,
+            phone: req.body.phone,
+            license_number: req.body.license_number,
+            hire_date: new Date(req.body.hire_date),
+            status: req.body.status,
+            truck_id: req.body.truck_id ? parseInt(req.body.truck_id) : null
+        };
+        // Update role if provided
+        if (req.body.role) {
+            const validRoles = ['driver', 'turnboy', 'admin', 'views'];
+            if (!validRoles.includes(req.body.role)) {
+                return res.status(400).json({ error: `Invalid role. Must be one of: ${validRoles.join(', ')}` });
+            }
+            updateData.role = req.body.role;
+        }
+        // Update salary if provided
+        if (req.body.salary !== undefined) {
+            const salary = parseFloat(req.body.salary);
+            if (isNaN(salary) || salary < 0) {
+                return res.status(400).json({ error: 'Salary must be a positive number' });
+            }
+            updateData.salary = salary;
+        }
         const employee = await prisma_1.prisma.employee.update({
             where: { id: parseInt(req.params.id) },
-            data: {
-                name: req.body.name,
-                email: req.body.email,
-                phone: req.body.phone,
-                license_number: req.body.license_number,
-                hire_date: new Date(req.body.hire_date),
-                status: req.body.status,
-                truck_id: req.body.truck_id ? parseInt(req.body.truck_id) : null
-            }
+            data: updateData
         });
         res.json(employee);
     }

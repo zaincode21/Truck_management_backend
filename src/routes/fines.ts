@@ -163,14 +163,27 @@ router.post('/', authenticateUser, async (req: AuthRequest, res) => {
       }
     }
     
+    const fineCost = parseFloat(req.body.fine_cost);
+    const employeeId = parseInt(req.body.employee_id);
+    
+    // Get the employee to check if they are a driver and get their current salary
+    const employee = await prisma.employee.findUnique({
+      where: { id: employeeId }
+    });
+    
+    if (!employee) {
+      return res.status(404).json({ error: 'Employee not found' });
+    }
+    
+    // Create the fine
     const fine = await prisma.fine.create({
       data: {
         car_id: parseInt(req.body.car_id),
-        employee_id: parseInt(req.body.employee_id),
+        employee_id: employeeId,
         delivery_id: req.body.delivery_id ? parseInt(req.body.delivery_id) : null,
         fine_type: req.body.fine_type,
         fine_date: new Date(req.body.fine_date),
-        fine_cost: parseFloat(req.body.fine_cost),
+        fine_cost: fineCost,
         pay_status: req.body.pay_status || 'unpaid', // Default to unpaid if not provided
         description: req.body.description || null
       },
@@ -180,6 +193,20 @@ router.post('/', authenticateUser, async (req: AuthRequest, res) => {
         delivery: true
       }
     });
+    
+    // If the employee is a driver, deduct the fine cost from their salary
+    if (employee.role === 'driver') {
+      const newSalary = Math.max(0, employee.salary - fineCost); // Prevent negative salary
+      
+      await prisma.employee.update({
+        where: { id: employeeId },
+        data: { salary: newSalary }
+      });
+      
+      // Update the fine object to reflect the updated employee salary
+      fine.employee.salary = newSalary;
+    }
+    
     res.status(201).json(fine);
   } catch (error) {
     console.error('Error creating fine:', error);
@@ -312,26 +339,42 @@ router.delete('/:id', authenticateUser, async (req: AuthRequest, res) => {
     const user = req.user;
     const fineId = parseInt(req.params.id);
     
-    // Check if fine exists and belongs to driver
-    if (user && user.role === 'driver' && user.employee_id) {
-      const existingFine = await prisma.fine.findUnique({
-        where: { id: fineId }
-      });
-      
-      if (!existingFine) {
-        return res.status(404).json({ error: 'Fine not found' });
+    // Get the fine first to check employee and restore salary if needed
+    const fine = await prisma.fine.findUnique({
+      where: { id: fineId },
+      include: {
+        employee: true
       }
-      
-      if (existingFine.employee_id !== user.employee_id) {
+    });
+    
+    if (!fine) {
+      return res.status(404).json({ error: 'Fine not found' });
+    }
+    
+    // Check if fine belongs to driver
+    if (user && user.role === 'driver' && user.employee_id) {
+      if (fine.employee_id !== user.employee_id) {
         return res.status(403).json({ error: 'You can only delete your own fines' });
       }
     }
     
+    // If the employee is a driver, restore the fine cost to their salary
+    if (fine.employee && fine.employee.role === 'driver') {
+      const newSalary = fine.employee.salary + fine.fine_cost;
+      
+      await prisma.employee.update({
+        where: { id: fine.employee_id },
+        data: { salary: newSalary }
+      });
+    }
+    
+    // Delete the fine
     await prisma.fine.delete({
       where: { id: fineId }
     });
     res.status(204).send();
   } catch (error) {
+    console.error('Error deleting fine:', error);
     res.status(400).json({ error: 'Failed to delete fine' });
   }
 });
