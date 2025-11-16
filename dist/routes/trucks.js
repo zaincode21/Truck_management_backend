@@ -205,7 +205,6 @@ router.post('/', async (req, res) => {
                 license_plate: req.body.license_plate.trim(),
                 model: req.body.model.trim(),
                 year: year,
-                capacity: 0, // Default capacity
                 status: 'active', // Default status
                 last_service: null // No service date initially
             }
@@ -257,9 +256,6 @@ router.post('/', async (req, res) => {
  *               year:
  *                 type: integer
  *                 example: 2023
- *               capacity:
- *                 type: number
- *                 example: 25.5
  *               status:
  *                 type: string
  *                 enum: [active, maintenance, idle, out-of-service, inactive]
@@ -273,7 +269,6 @@ router.post('/', async (req, res) => {
  *             license_plate: 'ABC-1234-UPDATED'
  *             model: 'Volvo FH16'
  *             year: 2023
- *             capacity: 30.0
  *             status: 'maintenance'
  *             last_service: '2023-10-20'
  *     responses:
@@ -300,7 +295,6 @@ router.put('/:id', async (req, res) => {
                 license_plate: req.body.license_plate,
                 model: req.body.model,
                 year: req.body.year,
-                capacity: req.body.capacity,
                 status: req.body.status,
                 last_service: req.body.last_service ? new Date(req.body.last_service) : null
             }

@@ -45,8 +45,6 @@ router.get('/', async (req, res) => {
             },
             orderBy: { created_at: 'desc' }
         });
-        // Debug: Verify salary is included in response
-        console.log('Employees with salary:', employees.map(e => ({ id: e.id, name: e.name, salary: e.salary })));
         res.json(employees);
     }
     catch (error) {
