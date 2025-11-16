@@ -14,7 +14,6 @@ model Truck {
   license_plate String    @unique
   model         String
   year          Int
-  capacity      Float
   status        String    @default("active") // active, maintenance, inactive
   last_service  DateTime?
   created_at    DateTime  @default(now())

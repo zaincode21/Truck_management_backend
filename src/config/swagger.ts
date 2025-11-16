@@ -40,7 +40,7 @@ const options = {
       schemas: {
         Truck: {
           type: 'object',
-          required: ['license_plate', 'model', 'year', 'capacity'],
+          required: ['license_plate', 'model', 'year'],
           properties: {
             id: {
               type: 'integer',
@@ -63,12 +63,6 @@ const options = {
               example: 2023,
               minimum: 1990,
               maximum: 2030
-            },
-            capacity: {
-              type: 'number',
-              description: 'Truck capacity in tons',
-              example: 25.5,
-              minimum: 0
             },
             status: {
               type: 'string',

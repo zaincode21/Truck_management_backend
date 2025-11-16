@@ -17,7 +17,6 @@ async function main() {
                 license_plate: 'RAD-123-A',
                 model: 'Volvo FH16',
                 year: 2022,
-                capacity: 25000,
                 status: 'active',
                 last_service: new Date('2025-10-15')
             }
@@ -27,7 +26,6 @@ async function main() {
                 license_plate: 'RAD-456-B',
                 model: 'Mercedes Actros',
                 year: 2021,
-                capacity: 20000,
                 status: 'active',
                 last_service: new Date('2025-10-20')
             }
@@ -37,7 +35,6 @@ async function main() {
                 license_plate: 'RAD-789-C',
                 model: 'Scania R500',
                 year: 2023,
-                capacity: 30000,
                 status: 'maintenance'
             }
         }),
@@ -46,7 +43,6 @@ async function main() {
                 license_plate: 'RAD-321-D',
                 model: 'MAN TGX',
                 year: 2020,
-                capacity: 18000,
                 status: 'active',
                 last_service: new Date('2025-10-10')
             }
@@ -56,7 +52,6 @@ async function main() {
                 license_plate: 'RAD-654-E',
                 model: 'Iveco Stralis',
                 year: 2022,
-                capacity: 22000,
                 status: 'active',
                 last_service: new Date('2025-10-18')
             }
