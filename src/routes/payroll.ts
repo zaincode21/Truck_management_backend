@@ -156,6 +156,7 @@ router.post('/process-month-end', authenticateUser, async (req: AuthRequest, res
     const payrollRecords = await Promise.all(
       employees.map(async (employee) => {
         // Get fines for this employee in this period
+        // Use select to avoid issues with missing columns
         const fines = await prisma.fine.findMany({
           where: {
             employee_id: employee.id,
@@ -163,6 +164,12 @@ router.post('/process-month-end', authenticateUser, async (req: AuthRequest, res
               gte: startDate,
               lte: endDate
             }
+          },
+          select: {
+            id: true,
+            fine_cost: true,
+            fine_date: true,
+            employee_id: true
           }
         });
 
@@ -301,6 +308,7 @@ router.get('/monthly-summary', authenticateUser, async (req: AuthRequest, res) =
     const endDate = new Date(parseInt(year as string), parseInt(month as string), 0, 23, 59, 59, 999);
 
     // Get fines summary
+    // Use select to avoid issues with missing columns (pay_status, payroll_period_id)
     const fines = await prisma.fine.findMany({
       where: {
         fine_date: {
@@ -308,8 +316,23 @@ router.get('/monthly-summary', authenticateUser, async (req: AuthRequest, res) =
           lte: endDate
         }
       },
-      include: {
-        employee: true
+      select: {
+        id: true,
+        car_id: true,
+        employee_id: true,
+        delivery_id: true,
+        fine_type: true,
+        fine_date: true,
+        fine_cost: true,
+        description: true,
+        employee: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true
+          }
+        }
       }
     });
 
