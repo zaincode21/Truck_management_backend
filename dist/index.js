@@ -16,6 +16,7 @@ const dashboard_1 = __importDefault(require("./routes/dashboard"));
 const analytics_1 = __importDefault(require("./routes/analytics"));
 const auth_1 = __importDefault(require("./routes/auth"));
 const payroll_1 = __importDefault(require("./routes/payroll"));
+const reports_1 = __importDefault(require("./routes/reports"));
 const swagger_1 = require("./config/swagger");
 dotenv_1.default.config();
 const app = (0, express_1.default)();
@@ -59,6 +60,7 @@ app.use('/api/fines', fines_1.default);
 app.use('/api/dashboard', dashboard_1.default);
 app.use('/api/analytics', analytics_1.default);
 app.use('/api/payroll', payroll_1.default);
+app.use('/api/reports', reports_1.default);
 // 404 handler for unknown routes
 app.use((req, res) => {
     res.status(404).json({
