@@ -10,6 +10,7 @@ import finesRouter from './routes/fines';
 import dashboardRouter from './routes/dashboard';
 import analyticsRouter from './routes/analytics';
 import authRouter from './routes/auth';
+import payrollRouter from './routes/payroll';
 import { specs, swaggerUi } from './config/swagger';
 
 dotenv.config();
@@ -62,6 +63,7 @@ app.use('/api/expenses', expensesRouter);
 app.use('/api/fines', finesRouter);
 app.use('/api/dashboard', dashboardRouter);
 app.use('/api/analytics', analyticsRouter);
+app.use('/api/payroll', payrollRouter);
 
 // 404 handler for unknown routes
 app.use((req: express.Request, res: express.Response) => {

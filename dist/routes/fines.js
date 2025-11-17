@@ -163,6 +163,34 @@ router.post('/', auth_1.authenticateUser, async (req, res) => {
         if (!employee) {
             return res.status(404).json({ error: 'Employee not found' });
         }
+        // Determine which payroll period this fine belongs to
+        const fineDate = new Date(req.body.fine_date);
+        const fineYear = fineDate.getFullYear();
+        const fineMonth = fineDate.getMonth() + 1;
+        // Get or create the payroll period for this fine
+        let payrollPeriod = await prisma_1.prisma.payrollPeriod.findFirst({
+            where: {
+                year: fineYear,
+                month: fineMonth
+            }
+        });
+        if (!payrollPeriod) {
+            const startDate = new Date(fineYear, fineMonth - 1, 1);
+            const endDate = new Date(fineYear, fineMonth, 0, 23, 59, 59, 999);
+            const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                'July', 'August', 'September', 'October', 'November', 'December'];
+            const periodName = `${monthNames[fineMonth - 1]} ${fineYear}`;
+            payrollPeriod = await prisma_1.prisma.payrollPeriod.create({
+                data: {
+                    year: fineYear,
+                    month: fineMonth,
+                    period_name: periodName,
+                    start_date: startDate,
+                    end_date: endDate,
+                    status: 'open'
+                }
+            });
+        }
         // Create the fine
         const fine = await prisma_1.prisma.fine.create({
             data: {
@@ -170,10 +198,11 @@ router.post('/', auth_1.authenticateUser, async (req, res) => {
                 employee_id: employeeId,
                 delivery_id: req.body.delivery_id ? parseInt(req.body.delivery_id) : null,
                 fine_type: req.body.fine_type,
-                fine_date: new Date(req.body.fine_date),
+                fine_date: fineDate,
                 fine_cost: fineCost,
                 pay_status: req.body.pay_status || 'unpaid', // Default to unpaid if not provided
-                description: req.body.description || null
+                description: req.body.description || null,
+                payroll_period_id: payrollPeriod.id
             },
             include: {
                 truck: true,
@@ -181,9 +210,10 @@ router.post('/', auth_1.authenticateUser, async (req, res) => {
                 delivery: true
             }
         });
-        // If the employee is a driver, deduct the fine cost from their salary
-        if (employee.role === 'driver') {
-            const newSalary = Math.max(0, employee.salary - fineCost); // Prevent negative salary
+        // If the employee is a driver or turnboy, deduct the fine cost from their salary
+        // Allow negative salaries as per requirement
+        if (employee.role === 'driver' || employee.role === 'turnboy') {
+            const newSalary = employee.salary - fineCost; // Calculate: salary - fine_cost
             await prisma_1.prisma.employee.update({
                 where: { id: employeeId },
                 data: { salary: newSalary }
@@ -244,14 +274,18 @@ router.put('/:id', auth_1.authenticateUser, async (req, res) => {
     try {
         const user = req.user;
         const fineId = parseInt(req.params.id);
-        // Check if fine exists and belongs to driver
-        if (user && user.role === 'driver' && user.employee_id) {
-            const existingFine = await prisma_1.prisma.fine.findUnique({
-                where: { id: fineId }
-            });
-            if (!existingFine) {
-                return res.status(404).json({ error: 'Fine not found' });
+        // Get the existing fine first to check employee and handle salary changes
+        const existingFine = await prisma_1.prisma.fine.findUnique({
+            where: { id: fineId },
+            include: {
+                employee: true
             }
+        });
+        if (!existingFine) {
+            return res.status(404).json({ error: 'Fine not found' });
+        }
+        // Check if fine belongs to driver
+        if (user && user.role === 'driver' && user.employee_id) {
             if (existingFine.employee_id !== user.employee_id) {
                 return res.status(403).json({ error: 'You can only edit your own fines' });
             }
@@ -261,13 +295,26 @@ router.put('/:id', auth_1.authenticateUser, async (req, res) => {
                 req.body.car_id = user.truck_id;
             }
         }
+        const newFineCost = parseFloat(req.body.fine_cost);
+        const oldFineCost = existingFine.fine_cost;
+        // If the employee is a driver or turnboy and fine cost changed, update salary
+        if (existingFine.employee && (existingFine.employee.role === 'driver' || existingFine.employee.role === 'turnboy') && newFineCost !== oldFineCost) {
+            // Restore the old fine cost to salary
+            const currentSalary = existingFine.employee.salary;
+            // Calculate: current_salary + old_fine_cost - new_fine_cost
+            const newSalary = currentSalary + oldFineCost - newFineCost;
+            await prisma_1.prisma.employee.update({
+                where: { id: existingFine.employee_id },
+                data: { salary: newSalary }
+            });
+        }
         const updateData = {
             car_id: parseInt(req.body.car_id),
             employee_id: parseInt(req.body.employee_id),
             delivery_id: req.body.delivery_id ? parseInt(req.body.delivery_id) : null,
             fine_type: req.body.fine_type,
             fine_date: new Date(req.body.fine_date),
-            fine_cost: parseFloat(req.body.fine_cost),
+            fine_cost: newFineCost,
             description: req.body.description
         };
         // Only update pay_status if provided
@@ -286,6 +333,7 @@ router.put('/:id', auth_1.authenticateUser, async (req, res) => {
         res.json(fine);
     }
     catch (error) {
+        console.error('Error updating fine:', error);
         res.status(400).json({ error: 'Failed to update fine' });
     }
 });
@@ -331,8 +379,8 @@ router.delete('/:id', auth_1.authenticateUser, async (req, res) => {
                 return res.status(403).json({ error: 'You can only delete your own fines' });
             }
         }
-        // If the employee is a driver, restore the fine cost to their salary
-        if (fine.employee && fine.employee.role === 'driver') {
+        // If the employee is a driver or turnboy, restore the fine cost to their salary
+        if (fine.employee && (fine.employee.role === 'driver' || fine.employee.role === 'turnboy')) {
             const newSalary = fine.employee.salary + fine.fine_cost;
             await prisma_1.prisma.employee.update({
                 where: { id: fine.employee_id },

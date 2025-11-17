@@ -41,7 +41,8 @@ router.get('/', auth_1.authenticateUser, async (req, res) => {
             include: {
                 product: true,
                 truck: true,
-                employee: true
+                employee: true,
+                turnboy: true
             },
             orderBy: { created_at: 'desc' }
         });
@@ -95,7 +96,8 @@ router.get('/:id', auth_1.authenticateUser, async (req, res) => {
             include: {
                 product: true,
                 truck: true,
-                employee: true
+                employee: true,
+                turnboy: true
             }
         });
         if (!delivery) {
@@ -300,6 +302,7 @@ router.post('/', auth_1.authenticateUser, async (req, res) => {
                 product_id: parseInt(req.body.product_id),
                 car_id: parseInt(req.body.car_id),
                 employee_id: parseInt(req.body.employee_id),
+                turnboy_id: req.body.turnboy_id ? parseInt(req.body.turnboy_id) : null,
                 origin: req.body.origin,
                 destination: req.body.destination,
                 delivery_date: deliveryDate,
@@ -315,7 +318,8 @@ router.post('/', auth_1.authenticateUser, async (req, res) => {
             include: {
                 product: true,
                 truck: true,
-                employee: true
+                employee: true,
+                turnboy: true
             }
         });
         res.status(201).json(delivery);
@@ -437,6 +441,7 @@ router.put('/:id', auth_1.authenticateUser, async (req, res) => {
                 product_id: parseInt(req.body.product_id),
                 car_id: parseInt(req.body.car_id),
                 employee_id: parseInt(req.body.employee_id),
+                turnboy_id: req.body.turnboy_id ? parseInt(req.body.turnboy_id) : null,
                 origin: req.body.origin,
                 destination: req.body.destination,
                 delivery_date: new Date(req.body.delivery_date),
@@ -452,7 +457,8 @@ router.put('/:id', auth_1.authenticateUser, async (req, res) => {
             include: {
                 product: true,
                 truck: true,
-                employee: true
+                employee: true,
+                turnboy: true
             }
         });
         res.json(delivery);

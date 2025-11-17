@@ -50,9 +50,11 @@ model Employee {
   created_at     DateTime     @default(now())
   updated_at     DateTime     @updatedAt
 
-  truck      Truck?     @relation(fields: [truck_id], references: [id])
-  deliveries Delivery[]
-  fines      Fine[]
+  truck           Truck?     @relation(fields: [truck_id], references: [id])
+  deliveries      Delivery[] @relation("DeliveryDriver")
+  deliveriesAsTurnboy Delivery[] @relation("DeliveryTurnboy")
+  fines            Fine[]
+  payrollRecords   PayrollRecord[]
 
   @@map("employees")
 }
@@ -77,7 +79,8 @@ model Delivery {
   delivery_code String   @unique
   product_id    Int
   car_id        Int
-  employee_id   Int
+  employee_id   Int      // Driver
+  turnboy_id    Int?     // Turnboy (optional)
   origin        String
   destination   String
   delivery_date DateTime
@@ -94,7 +97,8 @@ model Delivery {
 
   product  Product   @relation(fields: [product_id], references: [id])
   truck    Truck     @relation(fields: [car_id], references: [id])
-  employee Employee  @relation(fields: [employee_id], references: [id])
+  employee Employee  @relation("DeliveryDriver", fields: [employee_id], references: [id])
+  turnboy  Employee? @relation("DeliveryTurnboy", fields: [turnboy_id], references: [id])
   expenses      Expense[]
   fines         Fine[]
   otherExpenses OtherExpense[]
@@ -126,21 +130,23 @@ enum PayStatus {
 }
 
 model Fine {
-  id          Int       @id @default(autoincrement())
-  car_id      Int
-  employee_id Int
-  delivery_id Int? // Optional - link to specific delivery
-  fine_type   String // Rwanda National Police fine types
-  fine_date   DateTime // timestamp
-  fine_cost   Float
-  pay_status  PayStatus @default(unpaid) // Payment status: paid or unpaid
-  description String?
-  created_at  DateTime  @default(now())
-  updated_at  DateTime  @updatedAt
+  id               Int       @id @default(autoincrement())
+  car_id           Int
+  employee_id      Int
+  delivery_id      Int? // Optional - link to specific delivery
+  fine_type        String // Rwanda National Police fine types
+  fine_date        DateTime // timestamp
+  fine_cost        Float
+  pay_status       PayStatus @default(unpaid) // Payment status: paid or unpaid
+  description      String?
+  payroll_period_id Int? // Link to payroll period (which month this fine belongs to)
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
 
-  truck    Truck     @relation(fields: [car_id], references: [id])
-  employee Employee  @relation(fields: [employee_id], references: [id])
-  delivery Delivery? @relation(fields: [delivery_id], references: [id])
+  truck         Truck          @relation(fields: [car_id], references: [id])
+  employee      Employee       @relation(fields: [employee_id], references: [id])
+  delivery      Delivery?      @relation(fields: [delivery_id], references: [id])
+  payrollPeriod PayrollPeriod? @relation(fields: [payroll_period_id], references: [id])
 
   @@map("fines")
 }
@@ -161,4 +167,46 @@ model OtherExpense {
   expense  Expense   @relation(fields: [expense_id], references: [id], onDelete: Cascade)
 
   @@map("other_expenses")
+}
+
+// Payroll Period: Represents a month/year for payroll processing
+model PayrollPeriod {
+  id          Int      @id @default(autoincrement())
+  year        Int      // e.g., 2025
+  month       Int      // 1-12
+  period_name String   // e.g., "January 2025"
+  start_date  DateTime // First day of the month
+  end_date    DateTime // Last day of the month
+  status      String   @default("open") // open, closed, processed
+  processed_at DateTime? // When month-end was processed
+  processed_by Int? // User/Admin who processed it
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  payrollRecords PayrollRecord[]
+  fines          Fine[]
+
+  @@unique([year, month])
+  @@map("payroll_periods")
+}
+
+// Payroll Record: Individual employee payroll for a specific period
+model PayrollRecord {
+  id               Int      @id @default(autoincrement())
+  payroll_period_id Int
+  employee_id      Int
+  original_salary  Float    // Original salary before fines
+  total_fines      Float    @default(0) // Total fines for this period
+  net_salary       Float    // Net salary to be paid (original - fines)
+  status           String   @default("pending") // pending, paid, processed
+  paid_at          DateTime?
+  notes            String?
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+
+  payrollPeriod PayrollPeriod @relation(fields: [payroll_period_id], references: [id])
+  employee      Employee      @relation(fields: [employee_id], references: [id])
+
+  @@unique([payroll_period_id, employee_id])
+  @@map("payroll_records")
 }

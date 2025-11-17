@@ -45,9 +45,38 @@ router.get('/', async (req, res) => {
             },
             orderBy: { created_at: 'desc' }
         });
-        res.json(employees);
+        // Calculate original salary (before fines) and net salary (after fines) for each employee
+        // IMPORTANT: The salary field in DB is updated when fines are created/deleted,
+        // so it represents the net salary (after fines deducted).
+        // To get the original salary (before fines), we add back all fines: original = net + total_fines
+        const employeesWithSalaries = await Promise.all(employees.map(async (employee) => {
+            // Get total fines for this employee (drivers and turnboys have fines deducted)
+            let totalFines = 0;
+            if (employee.role === 'driver' || employee.role === 'turnboy') {
+                const fines = await prisma_1.prisma.fine.findMany({
+                    where: { employee_id: employee.id },
+                    select: { fine_cost: true }
+                });
+                totalFines = fines.reduce((sum, fine) => sum + fine.fine_cost, 0);
+            }
+            // Current salary in DB is the net salary (already has fines deducted for drivers)
+            const netSalary = employee.salary;
+            // Calculate original salary: net_salary + total_fines = original_salary (before any fines)
+            // This gives us the salary that was set when employee was created/updated, before any fines
+            const originalSalary = (employee.role === 'driver' || employee.role === 'turnboy')
+                ? netSalary + totalFines // For drivers/turnboys: add back fines to get original
+                : employee.salary; // For other roles: salary is never modified, so it's the original
+            return {
+                ...employee,
+                total_fines: totalFines,
+                original_salary: originalSalary, // Salary BEFORE any fines were deducted
+                net_salary: netSalary // Salary AFTER deducting all fines
+            };
+        }));
+        res.json(employeesWithSalaries);
     }
     catch (error) {
+        console.error('Error fetching employees:', error);
         res.status(500).json({ error: 'Failed to fetch employees' });
     }
 });

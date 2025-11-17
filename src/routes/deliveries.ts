@@ -44,7 +44,8 @@ router.get('/', authenticateUser, async (req: AuthRequest, res) => {
       include: {
         product: true,
         truck: true,
-        employee: true
+        employee: true,
+        turnboy: true
       },
       orderBy: { created_at: 'desc' }
     });
@@ -99,7 +100,8 @@ router.get('/:id', authenticateUser, async (req: AuthRequest, res) => {
       include: {
         product: true,
         truck: true,
-        employee: true
+        employee: true,
+        turnboy: true
       }
     });
     
@@ -324,6 +326,7 @@ router.post('/', authenticateUser, async (req: AuthRequest, res) => {
         product_id: parseInt(req.body.product_id),
         car_id: parseInt(req.body.car_id),
         employee_id: parseInt(req.body.employee_id),
+        turnboy_id: req.body.turnboy_id ? parseInt(req.body.turnboy_id) : null,
         origin: req.body.origin,
         destination: req.body.destination,
         delivery_date: deliveryDate,
@@ -339,7 +342,8 @@ router.post('/', authenticateUser, async (req: AuthRequest, res) => {
       include: {
         product: true,
         truck: true,
-        employee: true
+        employee: true,
+        turnboy: true
       }
     });
     res.status(201).json(delivery);
@@ -466,6 +470,7 @@ router.put('/:id', authenticateUser, async (req: AuthRequest, res) => {
         product_id: parseInt(req.body.product_id),
         car_id: parseInt(req.body.car_id),
         employee_id: parseInt(req.body.employee_id),
+        turnboy_id: req.body.turnboy_id ? parseInt(req.body.turnboy_id) : null,
         origin: req.body.origin,
         destination: req.body.destination,
         delivery_date: new Date(req.body.delivery_date),
@@ -481,7 +486,8 @@ router.put('/:id', authenticateUser, async (req: AuthRequest, res) => {
       include: {
         product: true,
         truck: true,
-        employee: true
+        employee: true,
+        turnboy: true
       }
     });
     res.json(delivery);
