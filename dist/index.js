@@ -36,7 +36,11 @@ app.use(logger_1.requestLogger);
 // CORS configuration
 const allowedOrigins = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
-    : ['http://localhost:3000', 'http://127.0.0.1:3000'];
+    : [
+        'http://localhost:3000',
+        'http://127.0.0.1:3000',
+        'https://truck-management-frontend.onrender.com'
+    ];
 app.use((0, cors_1.default)({
     origin: (origin, callback) => {
         // Allow requests with no origin (mobile apps, Postman, etc.)
