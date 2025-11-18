@@ -115,8 +115,10 @@ router.post('/login', async (req, res) => {
             });
         }
         // Check if it's a User (admin/views) login
+        // Normalize email for lookup
+        const normalizedEmail = email.toLowerCase().trim();
         const user = await prisma_1.prisma.user.findUnique({
-            where: { email: email.toLowerCase().trim() }
+            where: { email: normalizedEmail }
         });
         if (user) {
             // Verify password using bcrypt
@@ -135,7 +137,7 @@ router.post('/login', async (req, res) => {
                 });
             }
             // Generate token for user
-            const token = Buffer.from(`user:${user.id}:${email}:${Date.now()}`).toString('base64');
+            const token = Buffer.from(`user:${user.id}:${normalizedEmail}:${Date.now()}`).toString('base64');
             const expiresIn = rememberMe ? '30d' : '1d';
             return res.json({
                 success: true,

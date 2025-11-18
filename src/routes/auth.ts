@@ -116,8 +116,10 @@ router.post('/login', async (req, res) => {
     }
 
     // Check if it's a User (admin/views) login
+    // Normalize email for lookup
+    const normalizedEmail = email.toLowerCase().trim();
     const user = await prisma.user.findUnique({
-      where: { email: email.toLowerCase().trim() }
+      where: { email: normalizedEmail }
     });
 
     if (user) {
@@ -125,6 +127,11 @@ router.post('/login', async (req, res) => {
       const passwordMatch = await bcrypt.compare(password, user.password);
       
       if (!passwordMatch) {
+        console.error('Login failed - Password mismatch:', {
+          email: normalizedEmail,
+          userId: user.id,
+          userStatus: user.status
+        });
         return res.status(401).json({
           success: false,
           error: 'Invalid email or password'
@@ -140,7 +147,7 @@ router.post('/login', async (req, res) => {
       }
 
       // Generate token for user
-      const token = Buffer.from(`user:${user.id}:${email}:${Date.now()}`).toString('base64');
+      const token = Buffer.from(`user:${user.id}:${normalizedEmail}:${Date.now()}`).toString('base64');
       const expiresIn = rememberMe ? '30d' : '1d';
 
       return res.json({
