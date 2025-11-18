@@ -13,66 +13,110 @@ import authRouter from './routes/auth';
 import payrollRouter from './routes/payroll';
 import usersRouter from './routes/users';
 import { specs, swaggerUi } from './config/swagger';
+import { requestLogger, errorLogger, RequestWithId } from './middleware/logger';
+import { securityHeaders, helmetConfig } from './middleware/security';
+import { rateLimiter } from './middleware/rateLimiter';
+import { ResponseHelper } from './utils/response';
+import { authenticateUser, AuthRequest } from './middleware/auth';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
+// Trust proxy (for rate limiting and IP detection)
+app.set('trust proxy', 1);
+
+// Security Middleware (must be first)
+app.use(helmetConfig);
+app.use(securityHeaders);
+
+// Request Logger (must be early to capture all requests)
+app.use(requestLogger);
+
+// CORS configuration
 const allowedOrigins = process.env.ALLOWED_ORIGINS 
   ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
   : ['http://localhost:3000', 'http://127.0.0.1:3000'];
 
-// 
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
+  exposedHeaders: ['X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset']
+}));
+
+// Rate Limiting (apply to all routes except health check)
+app.use('/api', rateLimiter(15 * 60 * 1000, 100)); // 100 requests per 15 minutes
 
 // JSON body parser with error handling
 app.use(express.json({
-  limit: '10mb'
+  limit: '10mb',
+  strict: true
 }));
 
-// CORS configuration
-app.use(cors());
-
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Handle JSON parsing errors
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: any, req: RequestWithId, res: express.Response, next: express.NextFunction) => {
   if (err instanceof SyntaxError && 'body' in err) {
-    return res.status(400).json({ 
-      error: 'Invalid JSON', 
-      message: 'The request body contains invalid JSON' 
-    });
+    return ResponseHelper.badRequest(
+      res,
+      'Invalid JSON format in request body',
+      undefined,
+      { requestId: req.requestId }
+    );
   }
   next(err);
 });
 
-// Swagger Documentation
+// Swagger Documentation - Public (no authentication required)
+// Anyone can view the API documentation, but they need auth to use the endpoints
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, {
   explorer: true,
   customCss: '.swagger-ui .topbar { display: none }',
-  customSiteTitle: "Truck Management API Documentation"
+  customSiteTitle: "Truck Management API Documentation",
+  swaggerOptions: {
+    persistAuthorization: true, // Keep auth token in browser
+    displayRequestDuration: true,
+    filter: true,
+    tryItOutEnabled: true,
+  }
 }));
 
-// Routes
+// Public Routes (no authentication required)
 app.use('/api/auth', authRouter);
-app.use('/api/trucks', trucksRouter);
-app.use('/api/employees', employeesRouter);
-app.use('/api/products', productsRouter);
-app.use('/api/deliveries', deliveriesRouter);
-app.use('/api/expenses', expensesRouter);
-app.use('/api/fines', finesRouter);
-app.use('/api/dashboard', dashboardRouter);
-app.use('/api/analytics', analyticsRouter);
-app.use('/api/payroll', payrollRouter);
-app.use('/api/users', usersRouter);
+
+// Protected Routes (authentication required)
+// Note: Individual routes may have additional authentication checks
+app.use('/api/trucks', authenticateUser, trucksRouter);
+app.use('/api/employees', authenticateUser, employeesRouter);
+app.use('/api/products', authenticateUser, productsRouter);
+app.use('/api/deliveries', authenticateUser, deliveriesRouter);
+app.use('/api/expenses', authenticateUser, expensesRouter);
+app.use('/api/fines', authenticateUser, finesRouter);
+app.use('/api/dashboard', authenticateUser, dashboardRouter);
+app.use('/api/analytics', authenticateUser, analyticsRouter);
+app.use('/api/payroll', authenticateUser, payrollRouter);
+app.use('/api/users', authenticateUser, usersRouter);
 
 // 404 handler for unknown routes
-app.use((req: express.Request, res: express.Response) => {
-  res.status(404).json({
-    error: 'Not Found',
-    message: `Route ${req.method} ${req.path} not found`
-  });
+app.use((req: RequestWithId, res: express.Response) => {
+  ResponseHelper.notFound(
+    res,
+    `Route ${req.method} ${req.path} not found`,
+    { requestId: req.requestId }
+  );
 });
 
 /**
@@ -96,29 +140,82 @@ app.use((req: express.Request, res: express.Response) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+app.get('/health', (req: RequestWithId, res) => {
+  ResponseHelper.success(
+    res,
+    {
+      status: 'ok',
+      uptime: process.uptime(),
+      environment: process.env.NODE_ENV || 'development',
+      timestamp: new Date().toISOString(),
+    },
+    'API is healthy',
+    200,
+    { requestId: req.requestId }
+  );
 });
 
+// Error Logger Middleware
+app.use(errorLogger);
+
 // Global error handling middleware (must be last)
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: any, req: RequestWithId, res: express.Response, next: express.NextFunction) => {
   // Don't send response if headers already sent
   if (res.headersSent) {
     return next(err);
   }
   
-  console.error('Global error handler:', {
-    message: err.message,
-    stack: err.stack,
-    url: req.url,
-    method: req.method
-  });
-  
+  // Prisma errors
+  if (err.code === 'P2002') {
+    return ResponseHelper.badRequest(
+      res,
+      'A record with this value already exists',
+      undefined,
+      { requestId: req.requestId }
+    );
+  }
+
+  if (err.code === 'P2025') {
+    return ResponseHelper.notFound(
+      res,
+      'Record not found',
+      { requestId: req.requestId }
+    );
+  }
+
+  // Validation errors
+  if (err.name === 'ValidationError') {
+    return ResponseHelper.validationError(
+      res,
+      'Validation failed',
+      err.errors || {},
+      { requestId: req.requestId }
+    );
+  }
+
+  // JWT/Token errors
+  if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
+    return ResponseHelper.unauthorized(
+      res,
+      'Invalid or expired token',
+      { requestId: req.requestId }
+    );
+  }
+
+  // Default error response
   const status = err.status || err.statusCode || 500;
-  res.status(status).json({ 
-    error: err.message || 'Something went wrong!',
-    message: process.env.NODE_ENV === 'development' ? err.message : 'An error occurred'
-  });
+  const message = process.env.NODE_ENV === 'development' 
+    ? err.message 
+    : 'An internal server error occurred';
+
+  ResponseHelper.error(
+    res,
+    message,
+    status,
+    process.env.NODE_ENV === 'development' ? err.message : undefined,
+    undefined,
+    { requestId: req.requestId }
+  );
 });
 
 app.listen(PORT, () => {

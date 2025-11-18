@@ -10,7 +10,8 @@ const router = Router();
  *   post:
  *     tags: [Authentication]
  *     summary: User login
- *     description: Authenticate user and return session token
+ *     description: Authenticate user and return session token. Use this token in the "Authorize" button above.
+ *     security: []  # No authentication required for login
  *     requestBody:
  *       required: true
  *       content:
@@ -114,14 +115,56 @@ router.post('/login', async (req, res) => {
       });
     }
 
+    // Check if it's a User (admin/views) login
+    const user = await prisma.user.findUnique({
+      where: { email: email.toLowerCase().trim() }
+    });
+
+    if (user) {
+      // Verify password using bcrypt
+      const passwordMatch = await bcrypt.compare(password, user.password);
+      
+      if (!passwordMatch) {
+        return res.status(401).json({
+          success: false,
+          error: 'Invalid email or password'
+        });
+      }
+
+      // Check if user is active
+      if (user.status !== 'active') {
+        return res.status(403).json({
+          success: false,
+          error: 'Your account is not active. Please contact administrator.'
+        });
+      }
+
+      // Generate token for user
+      const token = Buffer.from(`user:${user.id}:${email}:${Date.now()}`).toString('base64');
+      const expiresIn = rememberMe ? '30d' : '1d';
+
+      return res.json({
+        success: true,
+        message: 'Login successful',
+        user: {
+          id: user.id.toString(),
+          email: user.email,
+          name: user.name,
+          role: user.role
+        },
+        token,
+        expiresIn
+      });
+    }
+
     // Check if it's an employee/driver login
     // Try to find employee by email
-      const employee = await prisma.employee.findUnique({
-        where: { email: email.toLowerCase().trim() },
-        include: {
-          truck: true
-        }
-      });
+    const employee = await prisma.employee.findUnique({
+      where: { email: email.toLowerCase().trim() },
+      include: {
+        truck: true
+      }
+    });
 
     if (employee) {
       // Check if employee has a password set
@@ -295,6 +338,29 @@ router.get('/verify', async (req, res) => {
             role: 'admin'
           }
         });
+      } else if (parts[0] === 'user') {
+        // User (admin/views from users table)
+        const userId = parseInt(parts[1]);
+        const user = await prisma.user.findUnique({
+          where: { id: userId }
+        });
+
+        if (!user || user.status !== 'active') {
+          return res.status(401).json({
+            success: false,
+            error: 'User not found or inactive'
+          });
+        }
+
+        return res.json({
+          success: true,
+          user: {
+            id: user.id.toString(),
+            email: user.email,
+            name: user.name,
+            role: user.role
+          }
+        });
       } else if (parts[0] === 'employee') {
         // Employee/Driver user
         const employeeId = parseInt(parts[1]);
@@ -387,6 +453,29 @@ router.get('/me', async (req, res) => {
             email: parts[1],
             name: 'Admin User',
             role: 'admin'
+          }
+        });
+      } else if (parts[0] === 'user') {
+        // User (admin/views from users table)
+        const userId = parseInt(parts[1]);
+        const user = await prisma.user.findUnique({
+          where: { id: userId }
+        });
+
+        if (!user || user.status !== 'active') {
+          return res.status(401).json({
+            success: false,
+            error: 'User not found or inactive'
+          });
+        }
+
+        return res.json({
+          success: true,
+          user: {
+            id: user.id.toString(),
+            email: user.email,
+            name: user.name,
+            role: user.role
           }
         });
       } else if (parts[0] === 'employee') {
@@ -500,6 +589,36 @@ router.put('/profile', async (req, res) => {
             email: req.body.email || parts[1],
             name: req.body.name || 'Admin User',
             role: 'admin'
+          }
+        });
+      } else if (parts[0] === 'user') {
+        // User (admin/views from users table) - update user record
+        const userId = parseInt(parts[1]);
+        
+        const updateData: any = {};
+        if (req.body.name) updateData.name = req.body.name.trim();
+        if (req.body.email) updateData.email = req.body.email.toLowerCase().trim();
+
+        if (Object.keys(updateData).length === 0) {
+          return res.status(400).json({
+            success: false,
+            error: 'No fields to update'
+          });
+        }
+
+        const user = await prisma.user.update({
+          where: { id: userId },
+          data: updateData
+        });
+
+        return res.json({
+          success: true,
+          message: 'Profile updated successfully',
+          user: {
+            id: user.id.toString(),
+            email: user.email,
+            name: user.name,
+            role: user.role
           }
         });
       } else if (parts[0] === 'employee') {
@@ -638,6 +757,41 @@ router.post('/change-password', async (req, res) => {
           });
         }
         // In production, would update admin password in database
+        return res.json({
+          success: true,
+          message: 'Password changed successfully'
+        });
+      } else if (parts[0] === 'user') {
+        // For users (admin/views), verify current password
+        const userId = parseInt(parts[1]);
+        const user = await prisma.user.findUnique({
+          where: { id: userId }
+        });
+
+        if (!user) {
+          return res.status(404).json({
+            success: false,
+            error: 'User not found'
+          });
+        }
+
+        // Verify password using bcrypt
+        const passwordMatch = await bcrypt.compare(currentPassword, user.password);
+
+        if (!passwordMatch) {
+          return res.status(401).json({
+            success: false,
+            error: 'Current password is incorrect'
+          });
+        }
+
+        // Update password in database with bcrypt
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        await prisma.user.update({
+          where: { id: userId },
+          data: { password: hashedPassword }
+        });
+
         return res.json({
           success: true,
           message: 'Password changed successfully'

@@ -10,6 +10,7 @@ const options = {
       description: `
         A comprehensive REST API for managing truck fleet operations including:
         - Fleet management (trucks and drivers)
+        - User management (admin and views roles)
         - Delivery tracking and management
         - Product and inventory management
         - Expense tracking and reporting
@@ -37,6 +38,14 @@ const options = {
       }
     ],
     components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+          description: 'Enter your Bearer token (get it from /api/auth/login)'
+        }
+      },
       schemas: {
         Truck: {
           type: 'object',
@@ -148,6 +157,68 @@ const options = {
               type: 'string',
               format: 'date-time',
               description: 'Record last update timestamp'
+            }
+          }
+        },
+        User: {
+          type: 'object',
+          required: ['name', 'email', 'password', 'role'],
+          properties: {
+            id: {
+              type: 'integer',
+              description: 'Unique identifier for the user',
+              example: 1
+            },
+            name: {
+              type: 'string',
+              description: 'User full name',
+              example: 'Admin User'
+            },
+            email: {
+              type: 'string',
+              format: 'email',
+              description: 'User email address',
+              example: 'admin@truckflow.com'
+            },
+            role: {
+              type: 'string',
+              enum: ['admin', 'views'],
+              description: 'User role (admin or views)',
+              example: 'admin'
+            },
+            status: {
+              type: 'string',
+              enum: ['active', 'inactive'],
+              description: 'Current user status',
+              example: 'active'
+            },
+            created_by: {
+              type: 'integer',
+              description: 'ID of user who created this user',
+              example: 1,
+              nullable: true
+            },
+            created_at: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Record creation timestamp',
+              example: '2023-10-30T10:30:00Z'
+            },
+            updated_at: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Record last update timestamp',
+              example: '2023-10-30T10:30:00Z'
+            },
+            creator: {
+              type: 'object',
+              description: 'User who created this user',
+              properties: {
+                id: { type: 'integer', example: 1 },
+                name: { type: 'string', example: 'Admin User' },
+                email: { type: 'string', example: 'admin@truckflow.com' }
+              },
+              nullable: true
             }
           }
         },
@@ -450,6 +521,10 @@ const options = {
         description: 'Employee and driver management'
       },
       {
+        name: 'Users',
+        description: 'System user management (admin and views roles)'
+      },
+      {
         name: 'Products',
         description: 'Product and inventory management'
       },
@@ -460,6 +535,23 @@ const options = {
       {
         name: 'Expenses',
         description: 'Expense tracking and reporting'
+      },
+      {
+        name: 'Fines',
+        description: 'Fine tracking and management'
+      },
+      {
+        name: 'Payroll',
+        description: 'Payroll processing and management'
+      },
+      {
+        name: 'Authentication',
+        description: 'User authentication and authorization'
+      }
+    ],
+    security: [
+      {
+        bearerAuth: []
       }
     ]
   },

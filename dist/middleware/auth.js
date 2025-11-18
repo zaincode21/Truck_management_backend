@@ -27,6 +27,25 @@ async function authenticateUser(req, res, next) {
                 };
                 return next();
             }
+            else if (parts[0] === 'user') {
+                // User (admin/views from users table)
+                const userId = parseInt(parts[1]);
+                const user = await prisma_1.prisma.user.findUnique({
+                    where: { id: userId }
+                });
+                if (!user || user.status !== 'active') {
+                    return res.status(401).json({
+                        success: false,
+                        error: 'User not found or inactive'
+                    });
+                }
+                req.user = {
+                    id: user.id.toString(),
+                    email: user.email,
+                    role: user.role
+                };
+                return next();
+            }
             else if (parts[0] === 'employee') {
                 // Employee/Driver user
                 const employeeId = parseInt(parts[1]);
