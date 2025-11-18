@@ -124,6 +124,11 @@ router.post('/login', async (req, res) => {
             // Verify password using bcrypt
             const passwordMatch = await bcryptjs_1.default.compare(password, user.password);
             if (!passwordMatch) {
+                console.error('Login failed - Password mismatch:', {
+                    email: normalizedEmail,
+                    userId: user.id,
+                    userStatus: user.status
+                });
                 return res.status(401).json({
                     success: false,
                     error: 'Invalid email or password'

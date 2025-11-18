@@ -96,6 +96,29 @@ app.use('/api/dashboard', auth_2.authenticateUser, dashboard_1.default);
 app.use('/api/analytics', auth_2.authenticateUser, analytics_1.default);
 app.use('/api/payroll', auth_2.authenticateUser, payroll_1.default);
 app.use('/api/users', auth_2.authenticateUser, users_1.default);
+// Root route handler
+app.get('/', (req, res) => {
+    response_1.ResponseHelper.success(res, {
+        version: '1.0.0',
+        documentation: '/api-docs',
+        health: '/health',
+        endpoints: {
+            auth: '/api/auth',
+            trucks: '/api/trucks',
+            employees: '/api/employees',
+            products: '/api/products',
+            deliveries: '/api/deliveries',
+            expenses: '/api/expenses',
+            fines: '/api/fines',
+            payroll: '/api/payroll',
+            users: '/api/users',
+        }
+    }, 'Truck Management API', 200, { requestId: req.requestId });
+});
+// Handle HEAD requests for health checks (used by Render and monitoring services)
+app.head('/', (req, res) => {
+    res.status(200).end();
+});
 // 404 handler for unknown routes
 app.use((req, res) => {
     response_1.ResponseHelper.notFound(res, `Route ${req.method} ${req.path} not found`, { requestId: req.requestId });
