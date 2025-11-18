@@ -20,3 +20,4 @@ export function swaggerAuth(req: Request, res: Response, next: NextFunction) {
   return authenticateUser(req as AuthRequest, res, next);
 }
 
+
