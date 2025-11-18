@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const prisma_1 = require("../lib/prisma");
+const auth_1 = require("../middleware/auth");
 const router = (0, express_1.Router)();
 /**
  * @swagger
@@ -220,8 +221,9 @@ router.get('/:id', async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post('/', async (req, res) => {
+router.post('/', auth_1.authenticateUser, async (req, res) => {
     try {
+        const user = req.user;
         // Validate required fields
         if (!req.body.name || !req.body.email || !req.body.phone || !req.body.license_number || !req.body.hire_date || !req.body.role || req.body.salary === undefined) {
             return res.status(400).json({ error: 'Missing required fields: name, email, phone, license_number, hire_date, role, salary' });
@@ -264,7 +266,8 @@ router.post('/', async (req, res) => {
                 status: req.body.status || 'active',
                 role: req.body.role,
                 salary: salary,
-                truck_id: truckId
+                truck_id: truckId,
+                created_by: user?.employee_id || null
             },
             include: {
                 truck: true

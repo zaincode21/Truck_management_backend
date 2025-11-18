@@ -337,6 +337,7 @@ router.post('/', authenticateUser, async (req: AuthRequest, res) => {
         tax: parseFloat(req.body.tax) || 0,
         price: parseFloat(req.body.price),
         total_income: parseFloat(req.body.total_income),
+        created_by: user?.employee_id || null,
         notes: req.body.notes || null
       },
       include: {

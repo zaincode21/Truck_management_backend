@@ -272,6 +272,7 @@ router.post('/', auth_1.authenticateUser, async (req, res) => {
             fine_date: fineDate,
             fine_cost: fineCost,
             description: req.body.description || null,
+            created_by: user?.employee_id || null
         };
         // Only add pay_status and payroll_period_id if columns exist (will be handled by try-catch in production)
         // In development, these will be added; in production without migrations, they'll be skipped

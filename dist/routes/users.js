@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const prisma_1 = require("../lib/prisma");
+const auth_1 = require("../middleware/auth");
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const router = (0, express_1.Router)();
 /**
@@ -13,36 +14,34 @@ const router = (0, express_1.Router)();
  *   get:
  *     tags: [Users]
  *     summary: Get all users
- *     description: Retrieve a list of all users/employees with their roles
+ *     description: Retrieves a list of all users (admin and views roles only)
  *     responses:
  *       200:
- *         description: List of users
+ *         description: List of users retrieved successfully
  *       500:
- *         description: Server error
+ *         description: Internal server error
  */
-router.get('/', async (req, res) => {
+router.get('/', auth_1.authenticateUser, async (req, res) => {
     try {
-        const users = await prisma_1.prisma.employee.findMany({
+        const users = await prisma_1.prisma.user.findMany({
             include: {
-                truck: true
+                creator: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true
+                    }
+                }
             },
-            orderBy: {
-                created_at: 'desc'
-            }
+            orderBy: { created_at: 'desc' }
         });
-        // Remove password from response
-        const usersWithoutPassword = users.map(user => {
-            const { password, ...userWithoutPassword } = user;
-            return userWithoutPassword;
-        });
-        res.json(usersWithoutPassword);
+        // Remove passwords from response
+        const usersWithoutPasswords = users.map(({ password, ...user }) => user);
+        res.json(usersWithoutPasswords);
     }
     catch (error) {
-        console.error('Get users error:', error);
-        res.status(500).json({
-            success: false,
-            error: error.message || 'Failed to fetch users'
-        });
+        console.error('Error fetching users:', error);
+        res.status(500).json({ error: 'Failed to fetch users' });
     }
 });
 /**
@@ -50,8 +49,8 @@ router.get('/', async (req, res) => {
  * /api/users/{id}:
  *   get:
  *     tags: [Users]
- *     summary: Get user by ID
- *     description: Retrieve a specific user by their ID
+ *     summary: Get a specific user
+ *     description: Retrieves detailed information about a specific user
  *     parameters:
  *       - in: path
  *         name: id
@@ -61,34 +60,35 @@ router.get('/', async (req, res) => {
  *           type: integer
  *     responses:
  *       200:
- *         description: User details
+ *         description: User retrieved successfully
  *       404:
  *         description: User not found
  */
-router.get('/:id', async (req, res) => {
+router.get('/:id', auth_1.authenticateUser, async (req, res) => {
     try {
-        const user = await prisma_1.prisma.employee.findUnique({
-            where: { id: parseInt(req.params.id) },
+        const userId = parseInt(req.params.id);
+        const user = await prisma_1.prisma.user.findUnique({
+            where: { id: userId },
             include: {
-                truck: true
+                creator: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true
+                    }
+                }
             }
         });
         if (!user) {
-            return res.status(404).json({
-                success: false,
-                error: 'User not found'
-            });
+            return res.status(404).json({ error: 'User not found' });
         }
         // Remove password from response
         const { password, ...userWithoutPassword } = user;
         res.json(userWithoutPassword);
     }
     catch (error) {
-        console.error('Get user error:', error);
-        res.status(500).json({
-            success: false,
-            error: error.message || 'Failed to fetch user'
-        });
+        console.error('Error fetching user:', error);
+        res.status(500).json({ error: 'Failed to fetch user' });
     }
 });
 /**
@@ -97,7 +97,7 @@ router.get('/:id', async (req, res) => {
  *   post:
  *     tags: [Users]
  *     summary: Create a new user
- *     description: Create a new user account with role assignment
+ *     description: Create a new user account with admin or views role
  *     requestBody:
  *       required: true
  *       content:
@@ -107,32 +107,19 @@ router.get('/:id', async (req, res) => {
  *             required:
  *               - name
  *               - email
- *               - phone
- *               - license_number
- *               - hire_date
- *               - role
  *               - password
+ *               - role
  *             properties:
  *               name:
  *                 type: string
  *               email:
  *                 type: string
  *                 format: email
- *               phone:
- *                 type: string
- *               license_number:
- *                 type: string
- *               hire_date:
- *                 type: string
- *                 format: date
- *               role:
- *                 type: string
- *                 enum: [admin, manager, driver, employee]
  *               password:
  *                 type: string
- *               truck_id:
- *                 type: integer
- *                 nullable: true
+ *               role:
+ *                 type: string
+ *                 enum: [admin, views]
  *               status:
  *                 type: string
  *                 default: active
@@ -140,79 +127,81 @@ router.get('/:id', async (req, res) => {
  *       201:
  *         description: User created successfully
  *       400:
- *         description: Invalid input
+ *         description: Invalid input data
  */
-router.post('/', async (req, res) => {
+router.post('/', auth_1.authenticateUser, async (req, res) => {
     try {
-        const { name, email, phone, license_number, hire_date, role, password, truck_id, status } = req.body;
+        const user = req.user;
         // Validate required fields
-        if (!name || !email || !phone || !license_number || !hire_date || !role || !password) {
+        if (!req.body.name || !req.body.email || !req.body.password || !req.body.role) {
             return res.status(400).json({
-                success: false,
-                error: 'Missing required fields'
+                error: 'Missing required fields: name, email, password, and role are required'
             });
         }
         // Validate role
-        const validRoles = ['admin', 'driver'];
-        if (!validRoles.includes(role)) {
+        const validRoles = ['admin', 'views'];
+        if (!validRoles.includes(req.body.role)) {
             return res.status(400).json({
-                success: false,
                 error: `Invalid role. Must be one of: ${validRoles.join(', ')}`
             });
         }
         // Check if email already exists
-        const existingUser = await prisma_1.prisma.employee.findUnique({
-            where: { email: email.toLowerCase().trim() }
+        const existingUser = await prisma_1.prisma.user.findUnique({
+            where: { email: req.body.email.toLowerCase().trim() }
         });
         if (existingUser) {
             return res.status(400).json({
-                success: false,
-                error: 'Email already exists'
-            });
-        }
-        // Check if license number already exists
-        const existingLicense = await prisma_1.prisma.employee.findUnique({
-            where: { license_number: license_number.trim() }
-        });
-        if (existingLicense) {
-            return res.status(400).json({
-                success: false,
-                error: 'License number already exists'
+                error: 'A user with this email already exists'
             });
         }
         // Hash password
-        const hashedPassword = await bcryptjs_1.default.hash(password, 10);
-        // Create user
-        const user = await prisma_1.prisma.employee.create({
+        const hashedPassword = await bcryptjs_1.default.hash(req.body.password, 10);
+        // Get creator user ID
+        // Note: Currently authentication uses Employee model, not User model
+        // For now, we'll set created_by to null
+        // In the future, if we implement User-based authentication, we can track the creator
+        // We could also look up if the current user's email exists in the users table
+        let createdBy = null;
+        // Try to find if the current user exists in the users table
+        if (user?.email) {
+            const creatorUser = await prisma_1.prisma.user.findUnique({
+                where: { email: user.email }
+            });
+            if (creatorUser) {
+                createdBy = creatorUser.id;
+            }
+        }
+        const newUser = await prisma_1.prisma.user.create({
             data: {
-                name: name.trim(),
-                email: email.toLowerCase().trim(),
-                phone: phone.trim(),
-                license_number: license_number.trim(),
-                hire_date: new Date(hire_date),
-                role: role,
+                name: req.body.name.trim(),
+                email: req.body.email.toLowerCase().trim(),
                 password: hashedPassword,
-                truck_id: truck_id || null,
-                status: status || 'active'
+                role: req.body.role,
+                status: req.body.status || 'active',
+                created_by: createdBy
             },
             include: {
-                truck: true
+                creator: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true
+                    }
+                }
             }
         });
         // Remove password from response
-        const { password: _, ...userWithoutPassword } = user;
-        res.status(201).json({
-            success: true,
-            message: 'User created successfully',
-            user: userWithoutPassword
-        });
+        const { password, ...userWithoutPassword } = newUser;
+        res.status(201).json(userWithoutPassword);
     }
     catch (error) {
-        console.error('Create user error:', error);
-        res.status(500).json({
-            success: false,
-            error: error.message || 'Failed to create user'
-        });
+        console.error('Error creating user:', error);
+        if (error.code === 'P2002') {
+            return res.status(400).json({
+                error: 'A user with this email already exists'
+            });
+        }
+        res.status(400).json({ error: error.message || 'Failed to create user' });
     }
 });
 /**
@@ -221,7 +210,7 @@ router.post('/', async (req, res) => {
  *   put:
  *     tags: [Users]
  *     summary: Update a user
- *     description: Update user information including role
+ *     description: Update user information
  *     parameters:
  *       - in: path
  *         name: id
@@ -240,22 +229,11 @@ router.post('/', async (req, res) => {
  *                 type: string
  *               email:
  *                 type: string
- *                 format: email
- *               phone:
- *                 type: string
- *               license_number:
- *                 type: string
- *               hire_date:
- *                 type: string
- *                 format: date
- *               role:
- *                 type: string
- *                 enum: [admin, manager, driver, employee]
  *               password:
  *                 type: string
- *               truck_id:
- *                 type: integer
- *                 nullable: true
+ *               role:
+ *                 type: string
+ *                 enum: [admin, views]
  *               status:
  *                 type: string
  *     responses:
@@ -264,96 +242,72 @@ router.post('/', async (req, res) => {
  *       404:
  *         description: User not found
  */
-router.put('/:id', async (req, res) => {
+router.put('/:id', auth_1.authenticateUser, async (req, res) => {
     try {
         const userId = parseInt(req.params.id);
-        const { name, email, phone, license_number, hire_date, role, password, truck_id, status } = req.body;
         // Check if user exists
-        const existingUser = await prisma_1.prisma.employee.findUnique({
+        const existingUser = await prisma_1.prisma.user.findUnique({
             where: { id: userId }
         });
         if (!existingUser) {
-            return res.status(404).json({
-                success: false,
-                error: 'User not found'
-            });
+            return res.status(404).json({ error: 'User not found' });
         }
         // Validate role if provided
-        if (role) {
-            const validRoles = ['admin', 'driver'];
-            if (!validRoles.includes(role)) {
+        if (req.body.role) {
+            const validRoles = ['admin', 'views'];
+            if (!validRoles.includes(req.body.role)) {
                 return res.status(400).json({
-                    success: false,
                     error: `Invalid role. Must be one of: ${validRoles.join(', ')}`
                 });
             }
         }
-        // Check if email already exists (for another user)
-        if (email && email.toLowerCase().trim() !== existingUser.email) {
-            const emailExists = await prisma_1.prisma.employee.findUnique({
-                where: { email: email.toLowerCase().trim() }
+        // Check if email is being changed and if it's already taken
+        if (req.body.email && req.body.email !== existingUser.email) {
+            const emailExists = await prisma_1.prisma.user.findUnique({
+                where: { email: req.body.email.toLowerCase().trim() }
             });
             if (emailExists) {
                 return res.status(400).json({
-                    success: false,
-                    error: 'Email already exists'
+                    error: 'A user with this email already exists'
                 });
             }
         }
-        // Check if license number already exists (for another user)
-        if (license_number && license_number.trim() !== existingUser.license_number) {
-            const licenseExists = await prisma_1.prisma.employee.findUnique({
-                where: { license_number: license_number.trim() }
-            });
-            if (licenseExists) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'License number already exists'
-                });
-            }
+        // Build update data
+        const updateData = {
+            name: req.body.name ? req.body.name.trim() : existingUser.name,
+            email: req.body.email ? req.body.email.toLowerCase().trim() : existingUser.email,
+            role: req.body.role || existingUser.role,
+            status: req.body.status || existingUser.status
+        };
+        // Hash password if provided
+        if (req.body.password) {
+            updateData.password = await bcryptjs_1.default.hash(req.body.password, 10);
         }
-        // Prepare update data
-        const updateData = {};
-        if (name)
-            updateData.name = name.trim();
-        if (email)
-            updateData.email = email.toLowerCase().trim();
-        if (phone)
-            updateData.phone = phone.trim();
-        if (license_number)
-            updateData.license_number = license_number.trim();
-        if (hire_date)
-            updateData.hire_date = new Date(hire_date);
-        if (role)
-            updateData.role = role;
-        if (password)
-            updateData.password = await bcryptjs_1.default.hash(password, 10);
-        if (truck_id !== undefined)
-            updateData.truck_id = truck_id || null;
-        if (status)
-            updateData.status = status;
-        // Update user
-        const user = await prisma_1.prisma.employee.update({
+        const updatedUser = await prisma_1.prisma.user.update({
             where: { id: userId },
             data: updateData,
             include: {
-                truck: true
+                creator: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true
+                    }
+                }
             }
         });
         // Remove password from response
-        const { password: _, ...userWithoutPassword } = user;
-        res.json({
-            success: true,
-            message: 'User updated successfully',
-            user: userWithoutPassword
-        });
+        const { password, ...userWithoutPassword } = updatedUser;
+        res.json(userWithoutPassword);
     }
     catch (error) {
-        console.error('Update user error:', error);
-        res.status(500).json({
-            success: false,
-            error: error.message || 'Failed to update user'
-        });
+        console.error('Error updating user:', error);
+        if (error.code === 'P2002') {
+            return res.status(400).json({
+                error: 'A user with this email already exists'
+            });
+        }
+        res.status(400).json({ error: error.message || 'Failed to update user' });
     }
 });
 /**
@@ -376,34 +330,27 @@ router.put('/:id', async (req, res) => {
  *       404:
  *         description: User not found
  */
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', auth_1.authenticateUser, async (req, res) => {
     try {
         const userId = parseInt(req.params.id);
         // Check if user exists
-        const user = await prisma_1.prisma.employee.findUnique({
+        const user = await prisma_1.prisma.user.findUnique({
             where: { id: userId }
         });
         if (!user) {
-            return res.status(404).json({
-                success: false,
-                error: 'User not found'
-            });
+            return res.status(404).json({ error: 'User not found' });
         }
-        // Delete user
-        await prisma_1.prisma.employee.delete({
+        // Prevent deleting yourself
+        // Note: This will need to be updated when we implement User authentication
+        // For now, we'll allow deletion
+        await prisma_1.prisma.user.delete({
             where: { id: userId }
         });
-        res.json({
-            success: true,
-            message: 'User deleted successfully'
-        });
+        res.json({ message: 'User deleted successfully' });
     }
     catch (error) {
-        console.error('Delete user error:', error);
-        res.status(500).json({
-            success: false,
-            error: error.message || 'Failed to delete user'
-        });
+        console.error('Error deleting user:', error);
+        res.status(400).json({ error: error.message || 'Failed to delete user' });
     }
 });
 exports.default = router;

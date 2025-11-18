@@ -171,7 +171,8 @@ router.post('/', auth_1.authenticateUser, async (req, res) => {
                 expense_type: req.body.expense_type,
                 amount: parseFloat(req.body.amount),
                 expense_date: new Date(req.body.expense_date),
-                description: req.body.description || null
+                description: req.body.description || null,
+                created_by: user?.employee_id || null
             },
             include: {
                 truck: true,
@@ -221,7 +222,8 @@ router.post('/', auth_1.authenticateUser, async (req, res) => {
                     fine_date: expense.expense_date,
                     fine_cost: expense.amount,
                     pay_status: 'unpaid',
-                    description: expense.description || `Other expense: ${expense.description || 'No description'}`
+                    description: expense.description || `Other expense: ${expense.description || 'No description'}`,
+                    created_by: user?.employee_id || null
                 }
             });
         }
@@ -366,7 +368,8 @@ router.put('/:id', auth_1.authenticateUser, async (req, res) => {
                     fine_date: expense.expense_date,
                     fine_cost: expense.amount,
                     pay_status: 'unpaid',
-                    description: expense.description || `Other expense: ${expense.description || 'No description'}`
+                    description: expense.description || `Other expense: ${expense.description || 'No description'}`,
+                    created_by: user?.employee_id || null
                 }
             });
         }

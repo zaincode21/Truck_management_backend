@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../lib/prisma';
+import { authenticateUser, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
@@ -148,8 +149,10 @@ router.get('/:id', async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post('/', async (req, res) => {
+router.post('/', authenticateUser, async (req: AuthRequest, res) => {
   try {
+    const user = req.user;
+    
     // Validate required fields
     if (!req.body.name || !req.body.description) {
       return res.status(400).json({ error: 'Missing required fields: name and description are required' });
@@ -161,7 +164,8 @@ router.post('/', async (req, res) => {
         description: req.body.description.trim(),
         ...(req.body.category && { category: req.body.category }),
         ...(req.body.unit_price !== undefined && { unit_price: req.body.unit_price }),
-        ...(req.body.stock_quantity !== undefined && { stock_quantity: req.body.stock_quantity })
+        ...(req.body.stock_quantity !== undefined && { stock_quantity: req.body.stock_quantity }),
+        created_by: user?.employee_id || null
       }
     });
     res.status(201).json(product);

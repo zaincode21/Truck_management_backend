@@ -288,6 +288,7 @@ router.post('/', authenticateUser, async (req: AuthRequest, res) => {
       fine_date: fineDate,
       fine_cost: fineCost,
       description: req.body.description || null,
+      created_by: user?.employee_id || null
     };
 
     // Only add pay_status and payroll_period_id if columns exist (will be handled by try-catch in production)

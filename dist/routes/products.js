@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const prisma_1 = require("../lib/prisma");
+const auth_1 = require("../middleware/auth");
 const router = (0, express_1.Router)();
 /**
  * @swagger
@@ -146,8 +147,9 @@ router.get('/:id', async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post('/', async (req, res) => {
+router.post('/', auth_1.authenticateUser, async (req, res) => {
     try {
+        const user = req.user;
         // Validate required fields
         if (!req.body.name || !req.body.description) {
             return res.status(400).json({ error: 'Missing required fields: name and description are required' });
@@ -158,7 +160,8 @@ router.post('/', async (req, res) => {
                 description: req.body.description.trim(),
                 ...(req.body.category && { category: req.body.category }),
                 ...(req.body.unit_price !== undefined && { unit_price: req.body.unit_price }),
-                ...(req.body.stock_quantity !== undefined && { stock_quantity: req.body.stock_quantity })
+                ...(req.body.stock_quantity !== undefined && { stock_quantity: req.body.stock_quantity }),
+                created_by: user?.employee_id || null
             }
         });
         res.status(201).json(product);

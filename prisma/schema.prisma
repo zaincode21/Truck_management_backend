@@ -16,6 +16,7 @@ model Truck {
   year          Int
   status        String    @default("active") // active, maintenance, inactive
   last_service  DateTime?
+  created_by    Int?      // Employee ID who created this record
   created_at    DateTime  @default(now())
   updated_at    DateTime  @updatedAt
 
@@ -24,6 +25,7 @@ model Truck {
   fines         Fine[]
   employees     Employee[]
   otherExpenses OtherExpense[]
+  creator       Employee? @relation("TruckCreator", fields: [created_by], references: [id])
 
   @@map("trucks")
 }
@@ -47,6 +49,7 @@ model Employee {
   salary         Float        @default(0)
   password       String? // Hashed password (optional for backward compatibility)
   truck_id       Int?
+  created_by     Int?      // Employee ID who created this record
   created_at     DateTime     @default(now())
   updated_at     DateTime     @updatedAt
 
@@ -55,6 +58,13 @@ model Employee {
   deliveriesAsTurnboy Delivery[] @relation("DeliveryTurnboy")
   fines            Fine[]
   payrollRecords   PayrollRecord[]
+  createdTrucks    Truck[]   @relation("TruckCreator")
+  createdEmployees Employee[] @relation("EmployeeCreator")
+  createdProducts  Product[]  @relation("ProductCreator")
+  createdDeliveries Delivery[] @relation("DeliveryCreator")
+  createdExpenses  Expense[]  @relation("ExpenseCreator")
+  createdFines     Fine[]     @relation("FineCreator")
+  creator          Employee?  @relation("EmployeeCreator", fields: [created_by], references: [id])
 
   @@map("employees")
 }
@@ -66,10 +76,12 @@ model Product {
   unit_price     Float?
   stock_quantity Int?
   description    String?
+  created_by     Int?      // Employee ID who created this record
   created_at     DateTime @default(now())
   updated_at     DateTime @updatedAt
 
   deliveries Delivery[]
+  creator    Employee? @relation("ProductCreator", fields: [created_by], references: [id])
 
   @@map("products")
 }
@@ -92,6 +104,7 @@ model Delivery {
   price         Float
   total_income  Float
   notes         String?
+  created_by    Int?      // Employee ID who created this record
   created_at    DateTime @default(now())
   updated_at    DateTime @updatedAt
 
@@ -99,6 +112,7 @@ model Delivery {
   truck    Truck     @relation(fields: [car_id], references: [id])
   employee Employee  @relation("DeliveryDriver", fields: [employee_id], references: [id])
   turnboy  Employee? @relation("DeliveryTurnboy", fields: [turnboy_id], references: [id])
+  creator  Employee? @relation("DeliveryCreator", fields: [created_by], references: [id])
   expenses      Expense[]
   fines         Fine[]
   otherExpenses OtherExpense[]
@@ -114,12 +128,14 @@ model Expense {
   amount       Float
   expense_date DateTime
   description  String?
+  created_by   Int?      // Employee ID who created this record
   created_at   DateTime @default(now())
   updated_at   DateTime @updatedAt
 
   truck         Truck         @relation(fields: [car_id], references: [id])
   delivery      Delivery?     @relation(fields: [delivery_id], references: [id])
   otherExpense  OtherExpense?
+  creator       Employee?     @relation("ExpenseCreator", fields: [created_by], references: [id])
 
   @@map("expenses")
 }
@@ -140,6 +156,7 @@ model Fine {
   pay_status       PayStatus @default(unpaid) // Payment status: paid or unpaid
   description      String?
   payroll_period_id Int? // Link to payroll period (which month this fine belongs to)
+  created_by       Int?      // Employee ID who created this record
   created_at       DateTime  @default(now())
   updated_at       DateTime  @updatedAt
 
@@ -147,6 +164,7 @@ model Fine {
   employee      Employee       @relation(fields: [employee_id], references: [id])
   delivery      Delivery?      @relation(fields: [delivery_id], references: [id])
   payrollPeriod PayrollPeriod? @relation(fields: [payroll_period_id], references: [id])
+  creator       Employee?      @relation("FineCreator", fields: [created_by], references: [id])
 
   @@map("fines")
 }
@@ -209,4 +227,26 @@ model PayrollRecord {
 
   @@unique([payroll_period_id, employee_id])
   @@map("payroll_records")
+}
+
+enum UserRole {
+  admin
+  views
+}
+
+model User {
+  id             Int       @id @default(autoincrement())
+  name           String
+  email          String    @unique
+  password       String    // Hashed password
+  role           UserRole  @default(views)
+  status         String    @default("active") // active, inactive
+  created_by     Int?      // User ID who created this user
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
+
+  creator        User?     @relation("UserCreator", fields: [created_by], references: [id])
+  createdUsers   User[]    @relation("UserCreator")
+
+  @@map("users")
 }

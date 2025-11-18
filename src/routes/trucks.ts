@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../lib/prisma';
+import { authenticateUser, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
@@ -189,8 +190,10 @@ router.get('/:id', async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post('/', async (req, res) => {
+router.post('/', authenticateUser, async (req: AuthRequest, res) => {
   try {
+    const user = req.user;
+    
     // Validate required fields
     if (!req.body.license_plate || !req.body.model || !req.body.year) {
       return res.status(400).json({ 
@@ -212,7 +215,8 @@ router.post('/', async (req, res) => {
         model: req.body.model.trim(),
         year: year,
         status: 'active', // Default status
-        last_service: null // No service date initially
+        last_service: null, // No service date initially
+        created_by: user?.employee_id || null
       }
     });
     res.status(201).json(truck);
