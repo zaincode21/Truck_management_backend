@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../lib/prisma';
-import { authenticateUser, AuthRequest } from '../middleware/auth';
+// Authentication removed - API is now public
 
 const router = Router();
 
@@ -27,17 +27,13 @@ const router = Router();
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get('/', authenticateUser, async (req: AuthRequest, res) => {
+router.get('/', async (req, res) => {
   try {
-    const user = req.user;
+    // Authentication removed - user tracking disabled
+    const user = undefined;
     
-    // Build query with filtering for drivers
+    // Build query - no filtering for drivers
     const where: any = {};
-    
-    // If user is a driver, only show their own deliveries
-    if (user && user.role === 'driver' && user.employee_id) {
-      where.employee_id = user.employee_id;
-    }
     
     const deliveries = await prisma.delivery.findMany({
       where,
@@ -90,9 +86,10 @@ router.get('/', authenticateUser, async (req: AuthRequest, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get('/:id', authenticateUser, async (req: AuthRequest, res) => {
+router.get('/:id', async (req, res) => {
   try {
-    const user = req.user;
+    // Authentication removed - user tracking disabled
+    const user = undefined;
     const deliveryId = parseInt(req.params.id);
     
     const delivery = await prisma.delivery.findUnique({
@@ -109,12 +106,7 @@ router.get('/:id', authenticateUser, async (req: AuthRequest, res) => {
       return res.status(404).json({ error: 'Delivery not found' });
     }
     
-    // Check if driver can access this delivery
-    if (user && user.role === 'driver' && user.employee_id) {
-      if (delivery.employee_id !== user.employee_id) {
-        return res.status(403).json({ error: 'You can only view your own deliveries' });
-      }
-    }
+    // Authentication removed - no access restrictions
     
     res.json(delivery);
   } catch (error) {
@@ -289,14 +281,10 @@ function parseDate(dateString: string): Date {
   return new Date(dateString)
 }
 
-router.post('/', authenticateUser, async (req: AuthRequest, res) => {
+router.post('/', async (req, res) => {
   try {
-    const user = req.user;
-    
-    // For drivers, force their employee_id
-    if (user && user.role === 'driver' && user.employee_id) {
-      req.body.employee_id = user.employee_id;
-    }
+    // Authentication removed - user tracking disabled
+    const user = undefined;
     
     // Parse delivery date first
     const deliveryDate = parseDate(req.body.delivery_date);
@@ -337,7 +325,7 @@ router.post('/', authenticateUser, async (req: AuthRequest, res) => {
         tax: parseFloat(req.body.tax) || 0,
         price: parseFloat(req.body.price),
         total_income: parseFloat(req.body.total_income),
-        created_by: user?.employee_id || null,
+        created_by: null,
         notes: req.body.notes || null
       },
       include: {
@@ -441,27 +429,19 @@ router.post('/', authenticateUser, async (req: AuthRequest, res) => {
  *       404:
  *         description: Delivery not found
  */
-router.put('/:id', authenticateUser, async (req: AuthRequest, res) => {
+router.put('/:id', async (req, res) => {
   try {
-    const user = req.user;
+    // Authentication removed - user tracking disabled
+    const user = undefined;
     const deliveryId = parseInt(req.params.id);
     
-    // Check if delivery exists and belongs to driver
-    if (user && user.role === 'driver' && user.employee_id) {
-      const existingDelivery = await prisma.delivery.findUnique({
-        where: { id: deliveryId }
-      });
-      
-      if (!existingDelivery) {
-        return res.status(404).json({ error: 'Delivery not found' });
-      }
-      
-      if (existingDelivery.employee_id !== user.employee_id) {
-        return res.status(403).json({ error: 'You can only edit your own deliveries' });
-      }
-      
-      // Force driver's employee_id
-      req.body.employee_id = user.employee_id;
+    // Check if delivery exists
+    const existingDelivery = await prisma.delivery.findUnique({
+      where: { id: deliveryId }
+    });
+    
+    if (!existingDelivery) {
+      return res.status(404).json({ error: 'Delivery not found' });
     }
     
     const delivery = await prisma.delivery.update({
@@ -524,24 +504,19 @@ router.put('/:id', authenticateUser, async (req: AuthRequest, res) => {
  *       404:
  *         description: Delivery not found
  */
-router.delete('/:id', authenticateUser, async (req: AuthRequest, res) => {
+router.delete('/:id', async (req, res) => {
   try {
-    const user = req.user;
+    // Authentication removed - user tracking disabled
+    const user = undefined;
     const deliveryId = parseInt(req.params.id);
     
-    // Check if delivery exists and belongs to driver
-    if (user && user.role === 'driver' && user.employee_id) {
-      const existingDelivery = await prisma.delivery.findUnique({
-        where: { id: deliveryId }
-      });
-      
-      if (!existingDelivery) {
-        return res.status(404).json({ error: 'Delivery not found' });
-      }
-      
-      if (existingDelivery.employee_id !== user.employee_id) {
-        return res.status(403).json({ error: 'You can only delete your own deliveries' });
-      }
+    // Check if delivery exists
+    const existingDelivery = await prisma.delivery.findUnique({
+      where: { id: deliveryId }
+    });
+    
+    if (!existingDelivery) {
+      return res.status(404).json({ error: 'Delivery not found' });
     }
     
     await prisma.delivery.delete({

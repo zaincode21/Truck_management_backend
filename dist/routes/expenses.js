@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const prisma_1 = require("../lib/prisma");
-const auth_1 = require("../middleware/auth");
+// Authentication removed - API is now public
 const router = (0, express_1.Router)();
 /**
  * @swagger
@@ -27,13 +27,10 @@ const router = (0, express_1.Router)();
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get('/', auth_1.authenticateUser, async (req, res) => {
+router.get('/', async (req, res) => {
     try {
-        const user = req.user;
-        // Build query with filtering for drivers
+        // Authentication removed - no filtering
         const where = {};
-        // Drivers can see all expenses (no longer tied to a specific truck)
-        // If needed in the future, we can filter by trucks used in their deliveries
         const expenses = await prisma_1.prisma.expense.findMany({
             where,
             include: {
@@ -83,9 +80,8 @@ router.get('/', auth_1.authenticateUser, async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get('/:id', auth_1.authenticateUser, async (req, res) => {
+router.get('/:id', async (req, res) => {
     try {
-        const user = req.user;
         const expenseId = parseInt(req.params.id);
         const expense = await prisma_1.prisma.expense.findUnique({
             where: { id: expenseId },
@@ -160,9 +156,10 @@ router.get('/:id', auth_1.authenticateUser, async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post('/', auth_1.authenticateUser, async (req, res) => {
+router.post('/', async (req, res) => {
     try {
-        const user = req.user;
+        // Authentication removed - user tracking disabled
+        const user = undefined;
         // Drivers can create expenses for any truck (no longer tied to a specific truck)
         const expense = await prisma_1.prisma.expense.create({
             data: {
@@ -172,7 +169,7 @@ router.post('/', auth_1.authenticateUser, async (req, res) => {
                 amount: parseFloat(req.body.amount),
                 expense_date: new Date(req.body.expense_date),
                 description: req.body.description || null,
-                created_by: user?.employee_id || null
+                created_by: null
             },
             include: {
                 truck: true,
@@ -223,7 +220,7 @@ router.post('/', auth_1.authenticateUser, async (req, res) => {
                     fine_cost: expense.amount,
                     pay_status: 'unpaid',
                     description: expense.description || `Other expense: ${expense.description || 'No description'}`,
-                    created_by: user?.employee_id || null
+                    created_by: null
                 }
             });
         }
@@ -296,9 +293,9 @@ router.post('/', auth_1.authenticateUser, async (req, res) => {
  *       404:
  *         description: Expense not found
  */
-router.put('/:id', auth_1.authenticateUser, async (req, res) => {
+router.put('/:id', async (req, res) => {
     try {
-        const user = req.user;
+        // Authentication removed
         const expenseId = parseInt(req.params.id);
         // Drivers can edit expenses for any truck (no longer tied to a specific truck)
         // Check if expense exists
@@ -369,7 +366,7 @@ router.put('/:id', auth_1.authenticateUser, async (req, res) => {
                     fine_cost: expense.amount,
                     pay_status: 'unpaid',
                     description: expense.description || `Other expense: ${expense.description || 'No description'}`,
-                    created_by: user?.employee_id || null
+                    created_by: null
                 }
             });
         }
@@ -465,11 +462,9 @@ router.put('/:id', auth_1.authenticateUser, async (req, res) => {
  *       404:
  *         description: Expense not found
  */
-router.delete('/:id', auth_1.authenticateUser, async (req, res) => {
+router.delete('/:id', async (req, res) => {
     try {
-        const user = req.user;
         const expenseId = parseInt(req.params.id);
-        // Drivers can delete expenses for any truck (no longer tied to a specific truck)
         // Check if expense exists
         const existingExpense = await prisma_1.prisma.expense.findUnique({
             where: { id: expenseId },

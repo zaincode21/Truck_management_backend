@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const prisma_1 = require("../lib/prisma");
-const auth_1 = require("../middleware/auth");
+// Authentication removed - API is now public
 const router = (0, express_1.Router)();
 /**
  * @swagger
@@ -186,9 +186,10 @@ router.get('/:id', async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post('/', auth_1.authenticateUser, async (req, res) => {
+router.post('/', async (req, res) => {
     try {
-        const user = req.user;
+        // Authentication removed - user tracking disabled
+        const user = undefined;
         // Validate required fields
         if (!req.body.license_plate || !req.body.model || !req.body.year) {
             return res.status(400).json({
@@ -209,7 +210,7 @@ router.post('/', auth_1.authenticateUser, async (req, res) => {
                 year: year,
                 status: 'active', // Default status
                 last_service: null, // No service date initially
-                created_by: user?.employee_id || null
+                created_by: null
             }
         });
         res.status(201).json(truck);

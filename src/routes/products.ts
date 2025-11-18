@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../lib/prisma';
-import { authenticateUser, AuthRequest } from '../middleware/auth';
+// Authentication removed - API is now public
 
 const router = Router();
 
@@ -149,9 +149,10 @@ router.get('/:id', async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post('/', authenticateUser, async (req: AuthRequest, res) => {
+router.post('/', async (req, res) => {
   try {
-    const user = req.user;
+    // Authentication removed - user tracking disabled
+    const user = undefined;
     
     // Validate required fields
     if (!req.body.name || !req.body.description) {
@@ -165,7 +166,7 @@ router.post('/', authenticateUser, async (req: AuthRequest, res) => {
         ...(req.body.category && { category: req.body.category }),
         ...(req.body.unit_price !== undefined && { unit_price: req.body.unit_price }),
         ...(req.body.stock_quantity !== undefined && { stock_quantity: req.body.stock_quantity }),
-        created_by: user?.employee_id || null
+        created_by: null
       }
     });
     res.status(201).json(product);

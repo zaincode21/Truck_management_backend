@@ -2,12 +2,12 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const prisma_1 = require("../lib/prisma");
-const auth_1 = require("../middleware/auth");
+// Authentication removed - API is now public
 const router = (0, express_1.Router)();
 /**
  * Get or create current payroll period
  */
-router.get('/current-period', auth_1.authenticateUser, async (req, res) => {
+router.get('/current-period', async (req, res) => {
     try {
         const now = new Date();
         const year = now.getFullYear();
@@ -67,7 +67,7 @@ router.get('/current-period', auth_1.authenticateUser, async (req, res) => {
 /**
  * Get all payroll periods
  */
-router.get('/periods', auth_1.authenticateUser, async (req, res) => {
+router.get('/periods', async (req, res) => {
     try {
         const periods = await prisma_1.prisma.payrollPeriod.findMany({
             orderBy: [
@@ -93,9 +93,10 @@ router.get('/periods', auth_1.authenticateUser, async (req, res) => {
 /**
  * Process month-end: Reset salaries and create payroll records
  */
-router.post('/process-month-end', auth_1.authenticateUser, async (req, res) => {
+router.post('/process-month-end', async (req, res) => {
     try {
-        const user = req.user;
+        // Authentication removed - user tracking disabled
+        const user = undefined;
         const { year, month } = req.body;
         if (!year || !month) {
             return res.status(400).json({ error: 'Year and month are required' });
@@ -211,7 +212,7 @@ router.post('/process-month-end', auth_1.authenticateUser, async (req, res) => {
             data: {
                 status: 'processed',
                 processed_at: new Date(),
-                processed_by: user?.employee_id || null
+                processed_by: null
             }
         });
         // Get updated period with records
@@ -239,7 +240,7 @@ router.post('/process-month-end', auth_1.authenticateUser, async (req, res) => {
 /**
  * Get payroll records for a specific period
  */
-router.get('/period/:periodId/records', auth_1.authenticateUser, async (req, res) => {
+router.get('/period/:periodId/records', async (req, res) => {
     try {
         const periodId = parseInt(req.params.periodId);
         const records = await prisma_1.prisma.payrollRecord.findMany({
@@ -270,7 +271,7 @@ router.get('/period/:periodId/records', auth_1.authenticateUser, async (req, res
 /**
  * Get monthly summary report
  */
-router.get('/monthly-summary', auth_1.authenticateUser, async (req, res) => {
+router.get('/monthly-summary', async (req, res) => {
     try {
         const { year, month } = req.query;
         if (!year || !month) {

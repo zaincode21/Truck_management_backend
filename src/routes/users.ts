@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../lib/prisma';
-import { authenticateUser, AuthRequest } from '../middleware/auth';
+// Authentication removed - API is now public
 import bcrypt from 'bcryptjs';
 
 const router = Router();
@@ -18,7 +18,7 @@ const router = Router();
  *       500:
  *         description: Internal server error
  */
-router.get('/', authenticateUser, async (req: AuthRequest, res) => {
+router.get('/', async (req, res) => {
   try {
     const users = await prisma.user.findMany({
       include: {
@@ -62,7 +62,7 @@ router.get('/', authenticateUser, async (req: AuthRequest, res) => {
  *       404:
  *         description: User not found
  */
-router.get('/:id', authenticateUser, async (req: AuthRequest, res) => {
+router.get('/:id', async (req, res) => {
   try {
     const userId = parseInt(req.params.id);
     const user = await prisma.user.findUnique({
@@ -129,9 +129,10 @@ router.get('/:id', authenticateUser, async (req: AuthRequest, res) => {
  *       400:
  *         description: Invalid input data
  */
-router.post('/', authenticateUser, async (req: AuthRequest, res) => {
+router.post('/', async (req, res) => {
   try {
-    const user = req.user;
+    // Authentication removed - user tracking disabled
+    const user = undefined;
     
     // Validate required fields
     if (!req.body.name || !req.body.email || !req.body.password || !req.body.role) {
@@ -169,15 +170,7 @@ router.post('/', authenticateUser, async (req: AuthRequest, res) => {
     // We could also look up if the current user's email exists in the users table
     let createdBy: number | null = null;
     
-    // Try to find if the current user exists in the users table
-    if (user?.email) {
-      const creatorUser = await prisma.user.findUnique({
-        where: { email: user.email }
-      });
-      if (creatorUser) {
-        createdBy = creatorUser.id;
-      }
-    }
+    // Authentication removed - created_by tracking disabled
     
     const newUser = await prisma.user.create({
       data: {
@@ -251,7 +244,7 @@ router.post('/', authenticateUser, async (req: AuthRequest, res) => {
  *       404:
  *         description: User not found
  */
-router.put('/:id', authenticateUser, async (req: AuthRequest, res) => {
+router.put('/:id', async (req, res) => {
   try {
     const userId = parseInt(req.params.id);
     
@@ -348,7 +341,7 @@ router.put('/:id', authenticateUser, async (req: AuthRequest, res) => {
  *       404:
  *         description: User not found
  */
-router.delete('/:id', authenticateUser, async (req: AuthRequest, res) => {
+router.delete('/:id', async (req, res) => {
   try {
     const userId = parseInt(req.params.id);
     

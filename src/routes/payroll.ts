@@ -1,13 +1,13 @@
 import { Router } from 'express';
 import { prisma } from '../lib/prisma';
-import { authenticateUser, AuthRequest } from '../middleware/auth';
+// Authentication removed - API is now public
 
 const router = Router();
 
 /**
  * Get or create current payroll period
  */
-router.get('/current-period', authenticateUser, async (req: AuthRequest, res) => {
+router.get('/current-period', async (req, res) => {
   try {
     const now = new Date();
     const year = now.getFullYear();
@@ -71,7 +71,7 @@ router.get('/current-period', authenticateUser, async (req: AuthRequest, res) =>
 /**
  * Get all payroll periods
  */
-router.get('/periods', authenticateUser, async (req: AuthRequest, res) => {
+router.get('/periods', async (req, res) => {
   try {
     const periods = await prisma.payrollPeriod.findMany({
       orderBy: [
@@ -98,9 +98,10 @@ router.get('/periods', authenticateUser, async (req: AuthRequest, res) => {
 /**
  * Process month-end: Reset salaries and create payroll records
  */
-router.post('/process-month-end', authenticateUser, async (req: AuthRequest, res) => {
+router.post('/process-month-end', async (req, res) => {
   try {
-    const user = req.user;
+    // Authentication removed - user tracking disabled
+    const user = undefined;
     const { year, month } = req.body;
 
     if (!year || !month) {
@@ -233,7 +234,7 @@ router.post('/process-month-end', authenticateUser, async (req: AuthRequest, res
       data: {
         status: 'processed',
         processed_at: new Date(),
-        processed_by: user?.employee_id || null
+        processed_by: null
       }
     });
 
@@ -263,7 +264,7 @@ router.post('/process-month-end', authenticateUser, async (req: AuthRequest, res
 /**
  * Get payroll records for a specific period
  */
-router.get('/period/:periodId/records', authenticateUser, async (req: AuthRequest, res) => {
+router.get('/period/:periodId/records', async (req, res) => {
   try {
     const periodId = parseInt(req.params.periodId);
 
@@ -296,7 +297,7 @@ router.get('/period/:periodId/records', authenticateUser, async (req: AuthReques
 /**
  * Get monthly summary report
  */
-router.get('/monthly-summary', authenticateUser, async (req: AuthRequest, res) => {
+router.get('/monthly-summary', async (req, res) => {
   try {
     const { year, month } = req.query;
 

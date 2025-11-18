@@ -22,7 +22,7 @@ const logger_1 = require("./middleware/logger");
 const security_1 = require("./middleware/security");
 const rateLimiter_1 = require("./middleware/rateLimiter");
 const response_1 = require("./utils/response");
-const auth_2 = require("./middleware/auth");
+// Authentication removed - API is now public
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 5000;
@@ -84,18 +84,16 @@ app.use('/api-docs', swagger_1.swaggerUi.serve, swagger_1.swaggerUi.setup(swagge
 }));
 // Public Routes (no authentication required)
 app.use('/api/auth', auth_1.default);
-// Protected Routes (authentication required)
-// Note: Individual routes may have additional authentication checks
-app.use('/api/trucks', auth_2.authenticateUser, trucks_1.default);
-app.use('/api/employees', auth_2.authenticateUser, employees_1.default);
-app.use('/api/products', auth_2.authenticateUser, products_1.default);
-app.use('/api/deliveries', auth_2.authenticateUser, deliveries_1.default);
-app.use('/api/expenses', auth_2.authenticateUser, expenses_1.default);
-app.use('/api/fines', auth_2.authenticateUser, fines_1.default);
-app.use('/api/dashboard', auth_2.authenticateUser, dashboard_1.default);
-app.use('/api/analytics', auth_2.authenticateUser, analytics_1.default);
-app.use('/api/payroll', auth_2.authenticateUser, payroll_1.default);
-app.use('/api/users', auth_2.authenticateUser, users_1.default);
+app.use('/api/trucks', trucks_1.default);
+app.use('/api/employees', employees_1.default);
+app.use('/api/products', products_1.default);
+app.use('/api/deliveries', deliveries_1.default);
+app.use('/api/expenses', expenses_1.default);
+app.use('/api/fines', fines_1.default);
+app.use('/api/dashboard', dashboard_1.default);
+app.use('/api/analytics', analytics_1.default);
+app.use('/api/payroll', payroll_1.default);
+app.use('/api/users', users_1.default);
 // Root route handler
 app.get('/', (req, res) => {
     response_1.ResponseHelper.success(res, {

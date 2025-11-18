@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../lib/prisma';
-import { authenticateUser, AuthRequest } from '../middleware/auth';
+// Authentication removed - API is now public
 
 const router = Router();
 
@@ -23,17 +23,13 @@ const router = Router();
  *       500:
  *         description: Internal server error
  */
-router.get('/', authenticateUser, async (req: AuthRequest, res) => {
+router.get('/', async (req, res) => {
   try {
-    const user = req.user;
+    // Authentication removed - user tracking disabled
+    const user = undefined;
     
-    // Build query with filtering for drivers
+    // Build query - no filtering for drivers
     const where: any = {};
-    
-    // If user is a driver, only show their own fines
-    if (user && user.role === 'driver' && user.employee_id) {
-      where.employee_id = user.employee_id;
-    }
     
     // Use select to avoid issues with missing columns (pay_status, payroll_period_id)
     const fines = await prisma.fine.findMany({
@@ -108,9 +104,8 @@ router.get('/', authenticateUser, async (req: AuthRequest, res) => {
  *       500:
  *         description: Internal server error
  */
-router.get('/:id', authenticateUser, async (req: AuthRequest, res) => {
+router.get('/:id', async (req, res) => {
   try {
-    const user = req.user;
     const fineId = parseInt(req.params.id);
     
     // Use select to avoid issues with missing columns
@@ -162,12 +157,7 @@ router.get('/:id', authenticateUser, async (req: AuthRequest, res) => {
       return res.status(404).json({ error: 'Fine not found' });
     }
     
-    // Check if driver can access this fine
-    if (user && user.role === 'driver' && user.employee_id) {
-      if (fine.employee_id !== user.employee_id) {
-        return res.status(403).json({ error: 'You can only view your own fines' });
-      }
-    }
+    // Authentication removed - no access restrictions
     
     res.json(fine);
   } catch (error) {
@@ -222,18 +212,11 @@ router.get('/:id', authenticateUser, async (req: AuthRequest, res) => {
  *       400:
  *         description: Invalid input data
  */
-router.post('/', authenticateUser, async (req: AuthRequest, res) => {
+router.post('/', async (req, res) => {
   try {
-    const user = req.user;
-    
-    // For drivers, force their employee_id and truck_id
-    if (user && user.role === 'driver' && user.employee_id) {
-      req.body.employee_id = user.employee_id;
-      // Also force truck_id if assigned
-      if (user.truck_id) {
-        req.body.car_id = user.truck_id;
-      }
-    }
+    // Authentication removed - user tracking disabled
+    const user = undefined;
+    // Authentication removed - no user restrictions
     
     const fineCost = parseFloat(req.body.fine_cost);
     const employeeId = parseInt(req.body.employee_id);
@@ -288,7 +271,7 @@ router.post('/', authenticateUser, async (req: AuthRequest, res) => {
       fine_date: fineDate,
       fine_cost: fineCost,
       description: req.body.description || null,
-      created_by: user?.employee_id || null
+      created_by: null
     };
 
     // Only add pay_status and payroll_period_id if columns exist (will be handled by try-catch in production)
@@ -412,9 +395,9 @@ router.post('/', authenticateUser, async (req: AuthRequest, res) => {
  *       404:
  *         description: Fine not found
  */
-router.put('/:id', authenticateUser, async (req: AuthRequest, res) => {
+router.put('/:id', async (req, res) => {
   try {
-    const user = req.user;
+    // Authentication removed
     const fineId = parseInt(req.params.id);
     
     // Get the existing fine first to check employee and handle salary changes
@@ -445,18 +428,7 @@ router.put('/:id', authenticateUser, async (req: AuthRequest, res) => {
       return res.status(404).json({ error: 'Fine not found' });
     }
     
-    // Check if fine belongs to driver
-    if (user && user.role === 'driver' && user.employee_id) {
-      if (existingFine.employee_id !== user.employee_id) {
-        return res.status(403).json({ error: 'You can only edit your own fines' });
-      }
-      
-      // Force driver's employee_id and truck_id
-      req.body.employee_id = user.employee_id;
-      if (user.truck_id) {
-        req.body.car_id = user.truck_id;
-      }
-    }
+    // Authentication removed - no access restrictions
     
     const newFineCost = parseFloat(req.body.fine_cost);
     const oldFineCost = existingFine.fine_cost;
@@ -527,9 +499,9 @@ router.put('/:id', authenticateUser, async (req: AuthRequest, res) => {
  *       404:
  *         description: Fine not found
  */
-router.delete('/:id', authenticateUser, async (req: AuthRequest, res) => {
+router.delete('/:id', async (req, res) => {
   try {
-    const user = req.user;
+    // Authentication removed
     const fineId = parseInt(req.params.id);
     
     // Get the fine first to check employee and restore salary if needed
@@ -560,12 +532,7 @@ router.delete('/:id', authenticateUser, async (req: AuthRequest, res) => {
       return res.status(404).json({ error: 'Fine not found' });
     }
     
-    // Check if fine belongs to driver
-    if (user && user.role === 'driver' && user.employee_id) {
-      if (fine.employee_id !== user.employee_id) {
-        return res.status(403).json({ error: 'You can only delete your own fines' });
-      }
-    }
+    // Authentication removed - no access restrictions
     
     // If the employee is a driver or turnboy, restore the fine cost to their salary
     if (fine.employee && (fine.employee.role === 'driver' || fine.employee.role === 'turnboy')) {

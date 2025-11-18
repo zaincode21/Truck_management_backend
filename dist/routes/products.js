@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const prisma_1 = require("../lib/prisma");
-const auth_1 = require("../middleware/auth");
+// Authentication removed - API is now public
 const router = (0, express_1.Router)();
 /**
  * @swagger
@@ -147,9 +147,10 @@ router.get('/:id', async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post('/', auth_1.authenticateUser, async (req, res) => {
+router.post('/', async (req, res) => {
     try {
-        const user = req.user;
+        // Authentication removed - user tracking disabled
+        const user = undefined;
         // Validate required fields
         if (!req.body.name || !req.body.description) {
             return res.status(400).json({ error: 'Missing required fields: name and description are required' });
@@ -161,7 +162,7 @@ router.post('/', auth_1.authenticateUser, async (req, res) => {
                 ...(req.body.category && { category: req.body.category }),
                 ...(req.body.unit_price !== undefined && { unit_price: req.body.unit_price }),
                 ...(req.body.stock_quantity !== undefined && { stock_quantity: req.body.stock_quantity }),
-                created_by: user?.employee_id || null
+                created_by: null
             }
         });
         res.status(201).json(product);

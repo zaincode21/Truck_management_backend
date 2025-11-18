@@ -5,7 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const prisma_1 = require("../lib/prisma");
-const auth_1 = require("../middleware/auth");
+// Authentication removed - API is now public
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const router = (0, express_1.Router)();
 /**
@@ -21,7 +21,7 @@ const router = (0, express_1.Router)();
  *       500:
  *         description: Internal server error
  */
-router.get('/', auth_1.authenticateUser, async (req, res) => {
+router.get('/', async (req, res) => {
     try {
         const users = await prisma_1.prisma.user.findMany({
             include: {
@@ -64,7 +64,7 @@ router.get('/', auth_1.authenticateUser, async (req, res) => {
  *       404:
  *         description: User not found
  */
-router.get('/:id', auth_1.authenticateUser, async (req, res) => {
+router.get('/:id', async (req, res) => {
     try {
         const userId = parseInt(req.params.id);
         const user = await prisma_1.prisma.user.findUnique({
@@ -129,9 +129,10 @@ router.get('/:id', auth_1.authenticateUser, async (req, res) => {
  *       400:
  *         description: Invalid input data
  */
-router.post('/', auth_1.authenticateUser, async (req, res) => {
+router.post('/', async (req, res) => {
     try {
-        const user = req.user;
+        // Authentication removed - user tracking disabled
+        const user = undefined;
         // Validate required fields
         if (!req.body.name || !req.body.email || !req.body.password || !req.body.role) {
             return res.status(400).json({
@@ -162,15 +163,7 @@ router.post('/', auth_1.authenticateUser, async (req, res) => {
         // In the future, if we implement User-based authentication, we can track the creator
         // We could also look up if the current user's email exists in the users table
         let createdBy = null;
-        // Try to find if the current user exists in the users table
-        if (user?.email) {
-            const creatorUser = await prisma_1.prisma.user.findUnique({
-                where: { email: user.email }
-            });
-            if (creatorUser) {
-                createdBy = creatorUser.id;
-            }
-        }
+        // Authentication removed - created_by tracking disabled
         const newUser = await prisma_1.prisma.user.create({
             data: {
                 name: req.body.name.trim(),
@@ -242,7 +235,7 @@ router.post('/', auth_1.authenticateUser, async (req, res) => {
  *       404:
  *         description: User not found
  */
-router.put('/:id', auth_1.authenticateUser, async (req, res) => {
+router.put('/:id', async (req, res) => {
     try {
         const userId = parseInt(req.params.id);
         // Check if user exists
@@ -330,7 +323,7 @@ router.put('/:id', auth_1.authenticateUser, async (req, res) => {
  *       404:
  *         description: User not found
  */
-router.delete('/:id', auth_1.authenticateUser, async (req, res) => {
+router.delete('/:id', async (req, res) => {
     try {
         const userId = parseInt(req.params.id);
         // Check if user exists

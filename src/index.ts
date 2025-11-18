@@ -17,7 +17,7 @@ import { requestLogger, errorLogger, RequestWithId } from './middleware/logger';
 import { securityHeaders, helmetConfig } from './middleware/security';
 import { rateLimiter } from './middleware/rateLimiter';
 import { ResponseHelper } from './utils/response';
-import { authenticateUser, AuthRequest } from './middleware/auth';
+// Authentication removed - API is now public
 
 dotenv.config();
 
@@ -96,19 +96,16 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, {
 
 // Public Routes (no authentication required)
 app.use('/api/auth', authRouter);
-
-// Protected Routes (authentication required)
-// Note: Individual routes may have additional authentication checks
-app.use('/api/trucks', authenticateUser, trucksRouter);
-app.use('/api/employees', authenticateUser, employeesRouter);
-app.use('/api/products', authenticateUser, productsRouter);
-app.use('/api/deliveries', authenticateUser, deliveriesRouter);
-app.use('/api/expenses', authenticateUser, expensesRouter);
-app.use('/api/fines', authenticateUser, finesRouter);
-app.use('/api/dashboard', authenticateUser, dashboardRouter);
-app.use('/api/analytics', authenticateUser, analyticsRouter);
-app.use('/api/payroll', authenticateUser, payrollRouter);
-app.use('/api/users', authenticateUser, usersRouter);
+app.use('/api/trucks', trucksRouter);
+app.use('/api/employees', employeesRouter);
+app.use('/api/products', productsRouter);
+app.use('/api/deliveries', deliveriesRouter);
+app.use('/api/expenses', expensesRouter);
+app.use('/api/fines', finesRouter);
+app.use('/api/dashboard', dashboardRouter);
+app.use('/api/analytics', analyticsRouter);
+app.use('/api/payroll', payrollRouter);
+app.use('/api/users', usersRouter);
 
 // Root route handler
 app.get('/', (req: RequestWithId, res: express.Response) => {
