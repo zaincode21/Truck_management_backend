@@ -100,7 +100,7 @@ model Delivery {
   cost          Float
   fuel_cost     Float
   mileage_cost  Float    @default(0) // Money given to employee for the delivery
-  tax           Float    @default(0) // Tax percentage (e.g., 18 for 18%)
+  tax           Float    @default(0) // Tax amount in RWF (not percentage)
   price         Float
   total_income  Float
   notes         String?
