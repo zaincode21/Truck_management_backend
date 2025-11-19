@@ -154,6 +154,8 @@ model Fine {
   fine_date        DateTime // timestamp
   fine_cost        Float
   pay_status       PayStatus @default(unpaid) // Payment status: paid or unpaid
+  paid_amount      Float     @default(0) // Amount paid so far (for partial payments)
+  remaining_amount Float?    // Remaining amount to be paid (fine_cost - paid_amount)
   description      String?
   payroll_period_id Int? // Link to payroll period (which month this fine belongs to)
   created_by       Int?      // Employee ID who created this record
@@ -165,6 +167,7 @@ model Fine {
   delivery      Delivery?      @relation(fields: [delivery_id], references: [id])
   payrollPeriod PayrollPeriod? @relation(fields: [payroll_period_id], references: [id])
   creator       Employee?      @relation("FineCreator", fields: [created_by], references: [id])
+  payments      Payment[]
 
   @@map("fines")
 }
@@ -203,6 +206,7 @@ model PayrollPeriod {
 
   payrollRecords PayrollRecord[]
   fines          Fine[]
+  payments       Payment[]
 
   @@unique([year, month])
   @@map("payroll_periods")
@@ -249,4 +253,22 @@ model User {
   createdUsers   User[]    @relation("UserCreator")
 
   @@map("users")
+}
+
+// Payment: Tracks individual payments made towards a fine
+model Payment {
+  id               Int      @id @default(autoincrement())
+  fine_id          Int      // Link to the fine being paid
+  amount           Float    // Amount paid in this transaction
+  payment_date     DateTime @default(now()) // When the payment was made
+  payroll_period_id Int?    // Link to payroll period (which month this payment belongs to)
+  notes            String?  // Optional notes about the payment
+  created_by       Int?     // Employee/User ID who recorded this payment
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+
+  fine            Fine            @relation(fields: [fine_id], references: [id], onDelete: Cascade)
+  payrollPeriod   PayrollPeriod?  @relation(fields: [payroll_period_id], references: [id])
+
+  @@map("payments")
 }
