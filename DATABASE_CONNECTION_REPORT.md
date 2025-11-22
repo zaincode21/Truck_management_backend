@@ -58,7 +58,7 @@ Can't reach database server at `postgresql-aipos.alwaysdata.net:5432`
 Update your `server/.env` file with the correct connection string:
 
 ```bash
-DATABASE_URL=postgresql://aipos:Serge%21%40%23123@postgresql-aipos.alwaysdata.net:5432/aipos_truckflow?schema=public&sslmode=require
+# DATABASE_URL=postgresql://aipos:Serge%21%40%23123@postgresql-aipos.alwaysdata.net:5432/aipos_truckflow?schema=public&sslmode=require
 ```
 
 **Note**: 
@@ -105,6 +105,8 @@ This will help identify if the issue is with Prisma or the database itself.
 
 **Generated**: $(date)
 **Test Script**: `test-db-detailed.ts`
+
+
 
 
 
