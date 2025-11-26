@@ -249,7 +249,7 @@ const options = {
                         },
                         unit_price: {
                             type: 'number',
-                            description: 'Price per unit in RWF',
+                            description: 'Price per unit in RFW',
                             example: 25000,
                             minimum: 0
                         },
@@ -330,25 +330,25 @@ const options = {
                         },
                         cost: {
                             type: 'number',
-                            description: 'Delivery operational cost in RWF',
+                            description: 'Delivery operational cost in RFW',
                             example: 15000,
                             minimum: 0
                         },
                         fuel_cost: {
                             type: 'number',
-                            description: 'Fuel cost for delivery in RWF',
+                            description: 'Fuel cost for delivery in RFW',
                             example: 8000,
                             minimum: 0
                         },
                         price: {
                             type: 'number',
-                            description: 'Delivery service price in RWF',
+                            description: 'Delivery service price in RFW',
                             example: 30000,
                             minimum: 0
                         },
                         total_income: {
                             type: 'number',
-                            description: 'Total income from delivery in RWF',
+                            description: 'Total income from delivery in RFW',
                             example: 30000,
                             minimum: 0
                         },
@@ -401,7 +401,7 @@ const options = {
                         },
                         amount: {
                             type: 'number',
-                            description: 'Expense amount in RWF',
+                            description: 'Expense amount in RFW',
                             example: 50000,
                             minimum: 0
                         },

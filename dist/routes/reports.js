@@ -138,6 +138,7 @@ router.get('/financial', auth_1.authenticateUser, async (req, res) => {
             return new Intl.NumberFormat('en-RW', {
                 minimumFractionDigits: 0,
                 maximumFractionDigits: 0,
+                useGrouping: true, // Enable thousands separators (commas)
             }).format(amount);
         };
         // Helper function to format date
@@ -165,11 +166,11 @@ router.get('/financial', auth_1.authenticateUser, async (req, res) => {
         doc.moveDown(0.5);
         const summaryY = doc.y;
         doc.fontSize(10);
-        doc.text(`Total Delivery Income: RWF ${formatCurrency(totalDeliveryIncome)}`, 50, summaryY);
-        doc.text(`Total Expenses: RWF ${formatCurrency(totalExpenses)}`, 50, summaryY + 20);
-        doc.text(`Total Fines: RWF ${formatCurrency(totalFines)}`, 50, summaryY + 40);
+        doc.text(`Total Delivery Income: RFW ${formatCurrency(totalDeliveryIncome)}`, 50, summaryY);
+        doc.text(`Total Expenses: RFW ${formatCurrency(totalExpenses)}`, 50, summaryY + 20);
+        doc.text(`Total Fines: RFW ${formatCurrency(totalFines)}`, 50, summaryY + 40);
         doc.fontSize(12).fillColor('#2e7d32');
-        doc.text(`Net Income: RWF ${formatCurrency(netIncome)}`, 50, summaryY + 60);
+        doc.text(`Net Income: RFW ${formatCurrency(netIncome)}`, 50, summaryY + 60);
         doc.fillColor('#000000');
         doc.moveDown(2);
         // Deliveries table
@@ -201,7 +202,7 @@ router.get('/financial', auth_1.authenticateUser, async (req, res) => {
                 doc.text(delivery.origin || 'N/A', 250, doc.y, { width: 90 });
                 doc.text(delivery.destination || 'N/A', 350, doc.y, { width: 90 });
                 doc.text(delivery.status || 'N/A', 450, doc.y);
-                doc.text(`RWF ${formatCurrency(delivery.total_income || 0)}`, 500, doc.y, { width: 50, align: 'right' });
+                doc.text(`RFW ${formatCurrency(delivery.total_income || 0)}`, 500, doc.y, { width: 50, align: 'right' });
                 doc.moveDown(0.4);
                 if (index < deliveries.length - 1) {
                     doc.strokeColor('#eeeeee').moveTo(50, doc.y).lineTo(550, doc.y).stroke();
@@ -236,7 +237,7 @@ router.get('/financial', auth_1.authenticateUser, async (req, res) => {
                 doc.text(formatDate(expense.expense_date), 50, doc.y);
                 doc.text(expense.expense_type || 'N/A', 150, doc.y, { width: 90 });
                 doc.text(expense.truck?.license_plate || 'N/A', 250, doc.y);
-                doc.text(`RWF ${formatCurrency(expense.amount || 0)}`, 450, doc.y, { width: 100, align: 'right' });
+                doc.text(`RFW ${formatCurrency(expense.amount || 0)}`, 450, doc.y, { width: 100, align: 'right' });
                 doc.moveDown(0.4);
                 if (index < expenses.length - 1) {
                     doc.strokeColor('#eeeeee').moveTo(50, doc.y).lineTo(550, doc.y).stroke();
@@ -271,7 +272,7 @@ router.get('/financial', auth_1.authenticateUser, async (req, res) => {
                 doc.text(formatDate(fine.fine_date), 50, doc.y);
                 doc.text(fine.fine_type || 'N/A', 150, doc.y, { width: 90 });
                 doc.text(fine.employee?.name || 'N/A', 250, doc.y, { width: 90 });
-                doc.text(`RWF ${formatCurrency(fine.fine_cost || 0)}`, 450, doc.y, { width: 100, align: 'right' });
+                doc.text(`RFW ${formatCurrency(fine.fine_cost || 0)}`, 450, doc.y, { width: 100, align: 'right' });
                 doc.moveDown(0.4);
                 if (index < fines.length - 1) {
                     doc.strokeColor('#eeeeee').moveTo(50, doc.y).lineTo(550, doc.y).stroke();

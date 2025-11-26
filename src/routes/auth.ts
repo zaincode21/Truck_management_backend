@@ -96,25 +96,6 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Check if it's an admin login (hardcoded admin credentials)
-    if (email === 'admin@truckflow.com' && password === 'admin123') {
-      const token = Buffer.from(`admin:${email}:${Date.now()}`).toString('base64');
-      const expiresIn = rememberMe ? '30d' : '1d';
-
-      return res.json({
-        success: true,
-        message: 'Login successful',
-        user: {
-          id: 'admin',
-          email: email,
-          name: 'Admin User',
-          role: 'admin'
-        },
-        token,
-        expiresIn
-      });
-    }
-
     // Check if it's a User (admin/views) login
     // Normalize email for lookup
     const normalizedEmail = email.toLowerCase().trim();
@@ -755,20 +736,7 @@ router.post('/change-password', async (req, res) => {
       const decoded = Buffer.from(token, 'base64').toString('utf-8');
       const parts = decoded.split(':');
       
-      if (parts[0] === 'admin') {
-        // For admin, check if current password matches
-        if (currentPassword !== 'admin123') {
-          return res.status(401).json({
-            success: false,
-            error: 'Current password is incorrect'
-          });
-        }
-        // In production, would update admin password in database
-        return res.json({
-          success: true,
-          message: 'Password changed successfully'
-        });
-      } else if (parts[0] === 'user') {
+      if (parts[0] === 'user') {
         // For users (admin/views), verify current password
         const userId = parseInt(parts[1]);
         const user = await prisma.user.findUnique({

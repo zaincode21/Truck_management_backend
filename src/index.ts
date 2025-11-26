@@ -12,6 +12,7 @@ import analyticsRouter from './routes/analytics';
 import authRouter from './routes/auth';
 import payrollRouter from './routes/payroll';
 import usersRouter from './routes/users';
+import settingsRouter from './routes/settings';
 import { specs, swaggerUi } from './config/swagger';
 import { requestLogger, errorLogger, RequestWithId } from './middleware/logger';
 import { securityHeaders, helmetConfig } from './middleware/security';
@@ -110,6 +111,7 @@ app.use('/api/dashboard', dashboardRouter);
 app.use('/api/analytics', analyticsRouter);
 app.use('/api/payroll', payrollRouter);
 app.use('/api/users', usersRouter);
+app.use('/api/settings', settingsRouter);
 
 // Root route handler
 app.get('/', (req: RequestWithId, res: express.Response) => {

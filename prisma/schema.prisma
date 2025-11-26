@@ -100,7 +100,7 @@ model Delivery {
   cost          Float
   fuel_cost     Float
   mileage_cost  Float    @default(0) // Money given to employee for the delivery
-  tax           Float    @default(0) // Tax amount in RWF (not percentage)
+  tax           Float    @default(0) // Tax amount in RFW (not percentage)
   price         Float
   total_income  Float
   notes         String?
@@ -271,4 +271,26 @@ model Payment {
   payrollPeriod   PayrollPeriod?  @relation(fields: [payroll_period_id], references: [id])
 
   @@map("payments")
+}
+
+// Settings: Application and company settings
+model Settings {
+  id                Int      @id @default(autoincrement())
+  setting_type      String   // 'app' or 'company'
+  currency          String?  // RFW, USD, EUR, GBP
+  date_format       String?  // YYYY-MM-DD, MM/DD/YYYY, etc.
+  language          String?  // en, rw, fr
+  theme             String?  // system, light, dark
+  items_per_page    String?  // 10, 25, 50, 100
+  company_name      String?
+  company_email     String?
+  company_phone     String?
+  company_address   String?
+  company_city      String?
+  company_website   String?
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+
+  @@unique([setting_type])
+  @@map("settings")
 }

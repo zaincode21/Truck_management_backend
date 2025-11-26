@@ -1,4 +1,5 @@
-import { PrismaClient, EmployeeRole, PayStatus } from '@prisma/client';
+import { PrismaClient, EmployeeRole, PayStatus, UserRole } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -26,6 +27,7 @@ async function main() {
   // Clear existing data (in correct order due to foreign keys)
   // Use try-catch to handle tables that might not exist
   try {
+    await prisma.payment.deleteMany();
     await prisma.fine.deleteMany();
     await prisma.expense.deleteMany();
     await prisma.delivery.deleteMany();
@@ -34,6 +36,7 @@ async function main() {
     await prisma.employee.deleteMany();
     await prisma.product.deleteMany();
     await prisma.truck.deleteMany();
+    // Note: We don't delete users here - we'll update/create admin user instead
     // Try to delete other_expenses if it exists
     try {
       await prisma.otherExpense.deleteMany();
@@ -45,6 +48,43 @@ async function main() {
   }
 
   console.log('✅ Cleared existing data');
+
+  // Seed Admin User
+  const adminEmail = 'admin@truckflow.com';
+  const adminPassword = 'admin123';
+  const hashedAdminPassword = await bcrypt.hash(adminPassword, 10);
+
+  // Check if admin user already exists
+  const existingAdmin = await prisma.user.findUnique({
+    where: { email: adminEmail }
+  });
+
+  let adminUser;
+  if (existingAdmin) {
+    // Update existing admin user
+    adminUser = await prisma.user.update({
+      where: { email: adminEmail },
+      data: {
+        name: 'Admin User',
+        password: hashedAdminPassword,
+        role: UserRole.admin,
+        status: 'active'
+      }
+    });
+    console.log('✅ Updated existing admin user');
+  } else {
+    // Create new admin user
+    adminUser = await prisma.user.create({
+      data: {
+        name: 'Admin User',
+        email: adminEmail,
+        password: hashedAdminPassword,
+        role: UserRole.admin,
+        status: 'active'
+      }
+    });
+    console.log('✅ Created admin user');
+  }
 
   // Seed Trucks
   const trucks = await Promise.all([

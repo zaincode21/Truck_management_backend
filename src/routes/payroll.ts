@@ -191,8 +191,8 @@ router.post('/process-month-end', async (req, res) => {
         });
         const allFinesTotal = allFines.reduce((sum, fine) => sum + fine.fine_cost, 0);
         
-        // Net Salary = Original Salary - Total Fines (ALL fines, not just this period)
-        // This is what the employee receives after removing all fines they have
+        // Net Salary = Original Salary - Total Fines (ALL fines, regardless of payment status)
+        // Payments do NOT affect net salary - they are tracked separately for accounting
         const netSalary = originalSalary - allFinesTotal
 
         // Update fines to link to this payroll period

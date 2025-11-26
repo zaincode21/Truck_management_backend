@@ -63,14 +63,14 @@ router.get('/', async (req, res) => {
           totalFines = fines.reduce((sum, fine) => sum + fine.fine_cost, 0);
         }
         
-        // Original Salary = Employee's base salary (stored in employee.salary, doesn't change)
-        // This is the salary set when employee was created/updated
+        // Original Salary = Employee's base salary (stored in employee.salary, constant)
+        // This is the salary set when employee was created/updated, doesn't change
         const originalSalary = employee.salary;
         
-        // Net Salary = Original Salary - Total Fines
-        // This is what the employee receives after deducting all fines
+        // Net Salary = Original Salary - Total Fines (ALL fines, regardless of payment status)
+        // Payments do NOT affect net salary - they are tracked separately for accounting
         const netSalary = (employee.role === 'driver' || employee.role === 'turnboy')
-          ? originalSalary - totalFines  // For drivers/turnboys: subtract fines from original
+          ? originalSalary - totalFines  // For drivers/turnboys: subtract all fines from original
           : originalSalary; // For other roles: no fines, so net = original
         
         return {

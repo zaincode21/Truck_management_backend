@@ -346,7 +346,7 @@ router.post('/', async (req, res) => {
     // Note: We do NOT modify employee.salary when fines are created
     // Original Salary should remain constant (the base salary)
     // Net Salary will be calculated as: Original Salary - Total Fines
-    // This way the original salary stays at 250,000 and net salary = 250,000 - fines
+    // This way the original salary stays constant and net salary = original - all fines
     
     res.status(201).json(fine);
   } catch (error) {
@@ -727,8 +727,9 @@ router.post('/:id/payments', async (req, res) => {
     });
     
     // Note: We do NOT update employee salary when payment is made
-    // The original salary should remain unchanged
-    // Only fines affect the current salary, payments are tracked separately
+    // Original Salary and Net Salary should remain unchanged
+    // Payments are tracked separately for accounting purposes only
+    // Net Salary = Original Salary - Total Fines (regardless of payment status)
     
     // Get updated fine with payment
     const updatedFine = await prisma.fine.findUnique({
