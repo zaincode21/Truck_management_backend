@@ -41,7 +41,8 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
   : [
       'http://localhost:3000', 
       'http://127.0.0.1:3000',
-      'https://truck-management-frontend.onrender.com'
+      'http://84.247.131.178:3000',
+      // 'https://truck-management-frontend.onrender.com'
     ];
 
 app.use(cors({
