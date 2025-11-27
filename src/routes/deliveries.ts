@@ -281,6 +281,80 @@ function parseDate(dateString: string): Date {
   return new Date(dateString)
 }
 
+// Helper function to check if employee/turnboy/truck has pending deliveries
+async function hasPendingDeliveries(
+  employeeId?: number | null,
+  turnboyId?: number | null,
+  truckId?: number | null,
+  excludeDeliveryId?: number | null
+): Promise<boolean> {
+  const conditions: any[] = [];
+  
+  if (employeeId) {
+    conditions.push({ employee_id: employeeId, status: 'pending' });
+  }
+  if (turnboyId) {
+    conditions.push({ turnboy_id: turnboyId, status: 'pending' });
+  }
+  if (truckId) {
+    conditions.push({ car_id: truckId, status: 'pending' });
+  }
+  
+  if (conditions.length === 0) return false;
+  
+  const whereClause: any = {
+    AND: [
+      { OR: conditions }
+    ]
+  };
+  
+  // Exclude current delivery if provided
+  if (excludeDeliveryId) {
+    whereClause.AND.push({ id: { not: excludeDeliveryId } });
+  }
+  
+  const pendingCount = await prisma.delivery.count({
+    where: whereClause
+  });
+  
+  return pendingCount > 0;
+}
+
+// Helper function to update employee/turnboy/truck status based on pending deliveries
+async function updateResourceStatus(
+  employeeId?: number | null,
+  turnboyId?: number | null,
+  truckId?: number | null,
+  excludeDeliveryId?: number | null
+): Promise<void> {
+  // Check and update employee status
+  if (employeeId) {
+    const hasPending = await hasPendingDeliveries(employeeId, null, null, excludeDeliveryId);
+    await prisma.employee.update({
+      where: { id: employeeId },
+      data: { status: hasPending ? 'in-work' : 'active' }
+    });
+  }
+  
+  // Check and update turnboy status
+  if (turnboyId) {
+    const hasPending = await hasPendingDeliveries(null, turnboyId, null, excludeDeliveryId);
+    await prisma.employee.update({
+      where: { id: turnboyId },
+      data: { status: hasPending ? 'in-work' : 'active' }
+    });
+  }
+  
+  // Check and update truck status
+  if (truckId) {
+    const hasPending = await hasPendingDeliveries(null, null, truckId, excludeDeliveryId);
+    await prisma.truck.update({
+      where: { id: truckId },
+      data: { status: hasPending ? 'in-work' : 'active' }
+    });
+  }
+}
+
 router.post('/', async (req, res) => {
   try {
     // Authentication removed - user tracking disabled
@@ -335,6 +409,14 @@ router.post('/', async (req, res) => {
         turnboy: true
       }
     });
+    
+    // Update employee, turnboy, and truck status to "in-work" when delivery is created
+    await updateResourceStatus(
+      delivery.employee_id,
+      delivery.turnboy_id,
+      delivery.car_id
+    );
+    
     res.status(201).json(delivery);
   } catch (error) {
     console.error('Error creating delivery:', error);
@@ -444,6 +526,15 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Delivery not found' });
     }
     
+    const newStatus = req.body.status;
+    const wasPending = existingDelivery.status === 'pending';
+    const isNowDelivered = newStatus === 'delivered';
+    
+    // Store old IDs for status update
+    const oldEmployeeId = existingDelivery.employee_id;
+    const oldTurnboyId = existingDelivery.turnboy_id;
+    const oldTruckId = existingDelivery.car_id;
+    
     const delivery = await prisma.delivery.update({
       where: { id: parseInt(req.params.id) },
       data: {
@@ -471,6 +562,43 @@ router.put('/:id', async (req, res) => {
         turnboy: true
       }
     });
+    
+    // If delivery status changed to "delivered", update resource statuses
+    if (wasPending && isNowDelivered) {
+      // Update old resources (exclude this delivery since it's now delivered)
+      await updateResourceStatus(oldEmployeeId, oldTurnboyId, oldTruckId, deliveryId);
+      
+      // Update new resources (if they changed)
+      if (delivery.employee_id !== oldEmployeeId || 
+          delivery.turnboy_id !== oldTurnboyId || 
+          delivery.car_id !== oldTruckId) {
+        await updateResourceStatus(
+          delivery.employee_id,
+          delivery.turnboy_id,
+          delivery.car_id
+        );
+      }
+    } else if (isNowDelivered) {
+      // Delivery was already delivered, just check if resources changed
+      if (delivery.employee_id !== oldEmployeeId || 
+          delivery.turnboy_id !== oldTurnboyId || 
+          delivery.car_id !== oldTruckId) {
+        await updateResourceStatus(oldEmployeeId, oldTurnboyId, oldTruckId);
+        await updateResourceStatus(
+          delivery.employee_id,
+          delivery.turnboy_id,
+          delivery.car_id
+        );
+      }
+    } else {
+      // Status is still pending or changed to pending, ensure resources are in-work
+      await updateResourceStatus(
+        delivery.employee_id,
+        delivery.turnboy_id,
+        delivery.car_id
+      );
+    }
+    
     res.json(delivery);
   } catch (error) {
     res.status(400).json({ error: 'Failed to update delivery' });
@@ -519,9 +647,20 @@ router.delete('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Delivery not found' });
     }
     
+    // Store IDs before deletion for status update
+    const employeeId = existingDelivery.employee_id;
+    const turnboyId = existingDelivery.turnboy_id;
+    const truckId = existingDelivery.car_id;
+    
     await prisma.delivery.delete({
       where: { id: deliveryId }
     });
+    
+    // Update resource statuses after deletion (only if delivery was pending)
+    if (existingDelivery.status === 'pending') {
+      await updateResourceStatus(employeeId, turnboyId, truckId, deliveryId);
+    }
+    
     res.status(204).send();
   } catch (error) {
     res.status(400).json({ error: 'Failed to delete delivery' });

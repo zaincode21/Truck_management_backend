@@ -41,7 +41,10 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
         'http://localhost:3000',
         'http://127.0.0.1:3000',
         'http://84.247.131.178:3000',
-        // 'https://truck-management-frontend.onrender.com'
+        'http://hardrocksupplies.com',
+        'https://hardrocksupplies.com',
+        'http://www.hardrocksupplies.com',
+        'https://www.hardrocksupplies.com',
     ];
 app.use((0, cors_1.default)({
     origin: (origin, callback) => {

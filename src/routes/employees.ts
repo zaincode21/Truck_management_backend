@@ -37,7 +37,19 @@ const router = Router();
  */
 router.get('/', async (req, res) => {
   try {
+    const { available } = req.query;
+    
+    const whereClause: any = {};
+    
+    // If available query param is true, exclude employees with "in-work" status
+    if (available === 'true') {
+      whereClause.status = {
+        not: 'in-work'
+      };
+    }
+    
     const employees = await prisma.employee.findMany({
+      where: whereClause,
       include: {
         truck: true,
         _count: {

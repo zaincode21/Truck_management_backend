@@ -42,16 +42,28 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
       'http://localhost:3000', 
       'http://127.0.0.1:3000',
       'http://84.247.131.178:3000',
-      // 'https://truck-management-frontend.onrender.com'
+      'http://hardrocksupplies.com',
+      'https://hardrocksupplies.com',
+      'http://www.hardrocksupplies.com',
+      'https://www.hardrocksupplies.com',
     ];
 
-    app.use(cors({
-      origin: true, // Allow all origins (for testing)
-      credentials: true,
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
-      exposedHeaders: ['X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset']
-    }));
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
+  exposedHeaders: ['X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset']
+}));
 
 // Rate Limiting (apply to all routes except health check)
 app.use('/api', rateLimiter(15 * 60 * 1000, 100)); // 100 requests per 15 minutes

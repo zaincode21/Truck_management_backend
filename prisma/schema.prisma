@@ -14,7 +14,7 @@ model Truck {
   license_plate String    @unique
   model         String
   year          Int
-  status        String    @default("active") // active, maintenance, inactive
+  status        String    @default("active") // active, in-work, maintenance, inactive
   last_service  DateTime?
   created_by    Int?      // Employee ID who created this record
   created_at    DateTime  @default(now())
@@ -44,7 +44,7 @@ model Employee {
   phone          String
   license_number String       @unique
   hire_date      DateTime
-  status         String       @default("active") // active, inactive
+  status         String       @default("active") // active, in-work, inactive
   role           EmployeeRole @default(driver)
   salary         Float        @default(0)
   password       String? // Hashed password (optional for backward compatibility)
