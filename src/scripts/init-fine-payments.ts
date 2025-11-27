@@ -10,13 +10,11 @@ async function initFinePayments() {
   try {
     console.log('🔄 Initializing payment fields for existing fines...');
 
-    // Get all fines that don't have remaining_amount set or have null remaining_amount
+    // Get all fines that don't have remaining_amount set
+    // paid_amount has a default of 0, so we check for remaining_amount being null
     const fines = await prisma.fine.findMany({
       where: {
-        OR: [
-          { remaining_amount: null },
-          { paid_amount: null }
-        ]
+        remaining_amount: null
       },
       select: {
         id: true,
@@ -74,6 +72,7 @@ if (require.main === module) {
 }
 
 export { initFinePayments };
+
 
 
 

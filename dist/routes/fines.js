@@ -85,216 +85,6 @@ router.get('/', async (req, res) => {
 });
 /**
  * @swagger
- * /api/fines/{id}/payments:
- *   get:
- *     tags: [Fines]
- *     summary: Get payment history for a fine
- *     description: Retrieves all payments made towards a specific fine
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         description: Fine ID
- *         schema:
- *           type: integer
- *     responses:
- *       200:
- *         description: Payment history retrieved successfully
- *       404:
- *         description: Fine not found
- */
-router.get('/:id/payments', async (req, res) => {
-    try {
-        const fineId = parseInt(req.params.id);
-        // Check if fine exists
-        const fine = await prisma_1.prisma.fine.findUnique({
-            where: { id: fineId }
-        });
-        if (!fine) {
-            return res.status(404).json({ error: 'Fine not found' });
-        }
-        // Get all payments for this fine
-        const payments = await prisma_1.prisma.payment.findMany({
-            where: { fine_id: fineId },
-            include: {
-                payrollPeriod: true
-            },
-            orderBy: { payment_date: 'desc' }
-        });
-        res.json({
-            fine: {
-                id: fine.id,
-                fine_cost: fine.fine_cost,
-                paid_amount: fine.paid_amount || 0,
-                remaining_amount: fine.remaining_amount || fine.fine_cost,
-                pay_status: fine.pay_status
-            },
-            payments,
-            total_paid: payments.reduce((sum, p) => sum + p.amount, 0)
-        });
-    }
-    catch (error) {
-        console.error('Error fetching payments:', error);
-        res.status(500).json({ error: 'Failed to fetch payments' });
-    }
-});
-/**
- * @swagger
- * /api/fines/{id}/payments:
- *   post:
- *     tags: [Fines]
- *     summary: Make a payment towards a fine
- *     description: Records a partial or full payment for a fine
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         description: Fine ID
- *         schema:
- *           type: integer
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - amount
- *             properties:
- *               amount:
- *                 type: number
- *                 example: 25000
- *               payment_date:
- *                 type: string
- *                 format: date-time
- *                 example: '2025-11-15T00:00:00.000Z'
- *               notes:
- *                 type: string
- *                 example: 'Partial payment for November'
- *     responses:
- *       201:
- *         description: Payment recorded successfully
- *       400:
- *         description: Invalid payment amount or fine already fully paid
- *       404:
- *         description: Fine not found
- */
-router.post('/:id/payments', async (req, res) => {
-    try {
-        const fineId = parseInt(req.params.id);
-        const paymentAmount = parseFloat(req.body.amount);
-        if (!paymentAmount || paymentAmount <= 0) {
-            return res.status(400).json({ error: 'Payment amount must be greater than 0' });
-        }
-        // Get the fine with current payment status
-        const fine = await prisma_1.prisma.fine.findUnique({
-            where: { id: fineId },
-            include: {
-                employee: true,
-                payments: {
-                    orderBy: { payment_date: 'desc' }
-                }
-            }
-        });
-        if (!fine) {
-            return res.status(404).json({ error: 'Fine not found' });
-        }
-        // Calculate current remaining amount
-        const currentPaidAmount = fine.paid_amount || 0;
-        const currentRemainingAmount = fine.remaining_amount !== null && fine.remaining_amount !== undefined
-            ? fine.remaining_amount
-            : (fine.fine_cost - currentPaidAmount);
-        // Check if payment exceeds remaining amount
-        if (paymentAmount > currentRemainingAmount) {
-            return res.status(400).json({
-                error: `Payment amount (${paymentAmount}) exceeds remaining balance (${currentRemainingAmount})`
-            });
-        }
-        // Determine which payroll period this payment belongs to
-        const paymentDate = req.body.payment_date ? new Date(req.body.payment_date) : new Date();
-        const paymentYear = paymentDate.getFullYear();
-        const paymentMonth = paymentDate.getMonth() + 1;
-        // Get or create the payroll period for this payment
-        let payrollPeriod = await prisma_1.prisma.payrollPeriod.findFirst({
-            where: {
-                year: paymentYear,
-                month: paymentMonth
-            }
-        });
-        if (!payrollPeriod) {
-            const startDate = new Date(paymentYear, paymentMonth - 1, 1);
-            const endDate = new Date(paymentYear, paymentMonth, 0, 23, 59, 59, 999);
-            const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
-                'July', 'August', 'September', 'October', 'November', 'December'];
-            const periodName = `${monthNames[paymentMonth - 1]} ${paymentYear}`;
-            payrollPeriod = await prisma_1.prisma.payrollPeriod.create({
-                data: {
-                    year: paymentYear,
-                    month: paymentMonth,
-                    period_name: periodName,
-                    start_date: startDate,
-                    end_date: endDate,
-                    status: 'open'
-                }
-            });
-        }
-        // Create the payment record
-        const payment = await prisma_1.prisma.payment.create({
-            data: {
-                fine_id: fineId,
-                amount: paymentAmount,
-                payment_date: paymentDate,
-                payroll_period_id: payrollPeriod.id,
-                notes: req.body.notes || null,
-                created_by: null
-            }
-        });
-        // Update fine payment status
-        const newPaidAmount = currentPaidAmount + paymentAmount;
-        const newRemainingAmount = fine.fine_cost - newPaidAmount;
-        const newPayStatus = newRemainingAmount <= 0 ? 'paid' : 'unpaid';
-        await prisma_1.prisma.fine.update({
-            where: { id: fineId },
-            data: {
-                paid_amount: newPaidAmount,
-                remaining_amount: Math.max(0, newRemainingAmount), // Ensure it doesn't go negative
-                pay_status: newPayStatus
-            }
-        });
-        // If the employee is a driver or turnboy, restore the paid amount to their salary
-        if (fine.employee && (fine.employee.role === 'driver' || fine.employee.role === 'turnboy')) {
-            const newSalary = fine.employee.salary + paymentAmount;
-            await prisma_1.prisma.employee.update({
-                where: { id: fine.employee_id },
-                data: { salary: newSalary }
-            });
-        }
-        // Get updated fine with payment
-        const updatedFine = await prisma_1.prisma.fine.findUnique({
-            where: { id: fineId },
-            include: {
-                employee: true,
-                payments: {
-                    orderBy: { payment_date: 'desc' },
-                    include: {
-                        payrollPeriod: true
-                    }
-                }
-            }
-        });
-        res.status(201).json({
-            message: 'Payment recorded successfully',
-            payment,
-            fine: updatedFine
-        });
-    }
-    catch (error) {
-        console.error('Error recording payment:', error);
-        res.status(500).json({ error: 'Failed to record payment', details: error instanceof Error ? error.message : 'Unknown error' });
-    }
-});
-/**
- * @swagger
  * /api/fines/{id}:
  *   get:
  *     tags: [Fines]
@@ -501,6 +291,9 @@ router.post('/', async (req, res) => {
                 fine_type: true,
                 fine_date: true,
                 fine_cost: true,
+                pay_status: true,
+                paid_amount: true,
+                remaining_amount: true,
                 description: true,
                 created_at: true,
                 updated_at: true,
@@ -534,17 +327,10 @@ router.post('/', async (req, res) => {
                 }
             }
         });
-        // If the employee is a driver or turnboy, deduct the fine cost from their salary
-        // Allow negative salaries as per requirement
-        if (employee.role === 'driver' || employee.role === 'turnboy') {
-            const newSalary = employee.salary - fineCost; // Calculate: salary - fine_cost
-            await prisma_1.prisma.employee.update({
-                where: { id: employeeId },
-                data: { salary: newSalary }
-            });
-            // Update the fine object to reflect the updated employee salary
-            fine.employee.salary = newSalary;
-        }
+        // Note: We do NOT modify employee.salary when fines are created
+        // Original Salary should remain constant (the base salary)
+        // Net Salary will be calculated as: Original Salary - Total Fines
+        // This way the original salary stays constant and net salary = original - all fines
         res.status(201).json(fine);
     }
     catch (error) {
@@ -610,6 +396,8 @@ router.put('/:id', async (req, res) => {
                 fine_type: true,
                 fine_date: true,
                 fine_cost: true,
+                paid_amount: true,
+                remaining_amount: true,
                 description: true,
                 employee: {
                     select: {
@@ -627,17 +415,9 @@ router.put('/:id', async (req, res) => {
         // Authentication removed - no access restrictions
         const newFineCost = parseFloat(req.body.fine_cost);
         const oldFineCost = existingFine.fine_cost;
-        // If the employee is a driver or turnboy and fine cost changed, update salary
-        if (existingFine.employee && (existingFine.employee.role === 'driver' || existingFine.employee.role === 'turnboy') && newFineCost !== oldFineCost) {
-            // Restore the old fine cost to salary
-            const currentSalary = existingFine.employee.salary;
-            // Calculate: current_salary + old_fine_cost - new_fine_cost
-            const newSalary = currentSalary + oldFineCost - newFineCost;
-            await prisma_1.prisma.employee.update({
-                where: { id: existingFine.employee_id },
-                data: { salary: newSalary }
-            });
-        }
+        // Note: We do NOT modify employee.salary when fine is updated
+        // Original Salary should remain constant (the base salary)
+        // Net Salary will be calculated as: Original Salary - Total Fines
         const updateData = {
             car_id: parseInt(req.body.car_id),
             employee_id: parseInt(req.body.employee_id),
@@ -647,6 +427,13 @@ router.put('/:id', async (req, res) => {
             fine_cost: newFineCost,
             description: req.body.description
         };
+        // Recalculate remaining_amount if fine_cost changed
+        const currentPaidAmount = existingFine.paid_amount || 0;
+        if (newFineCost !== oldFineCost) {
+            updateData.remaining_amount = Math.max(0, newFineCost - currentPaidAmount);
+            // Update pay_status based on new remaining amount
+            updateData.pay_status = updateData.remaining_amount <= 0 ? 'paid' : 'unpaid';
+        }
         // Only update pay_status if provided
         if (req.body.pay_status !== undefined) {
             updateData.pay_status = req.body.pay_status;
@@ -654,10 +441,48 @@ router.put('/:id', async (req, res) => {
         const fine = await prisma_1.prisma.fine.update({
             where: { id: parseInt(req.params.id) },
             data: updateData,
-            include: {
-                truck: true,
-                employee: true,
-                delivery: true
+            select: {
+                id: true,
+                car_id: true,
+                employee_id: true,
+                delivery_id: true,
+                fine_type: true,
+                fine_date: true,
+                fine_cost: true,
+                pay_status: true,
+                paid_amount: true,
+                remaining_amount: true,
+                description: true,
+                created_at: true,
+                updated_at: true,
+                truck: {
+                    select: {
+                        id: true,
+                        license_plate: true,
+                        model: true,
+                        year: true,
+                        status: true
+                    }
+                },
+                employee: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                        phone: true,
+                        license_number: true,
+                        role: true,
+                        salary: true
+                    }
+                },
+                delivery: {
+                    select: {
+                        id: true,
+                        delivery_code: true,
+                        origin: true,
+                        destination: true
+                    }
+                }
             }
         });
         res.json(fine);
@@ -720,14 +545,9 @@ router.delete('/:id', async (req, res) => {
             return res.status(404).json({ error: 'Fine not found' });
         }
         // Authentication removed - no access restrictions
-        // If the employee is a driver or turnboy, restore the fine cost to their salary
-        if (fine.employee && (fine.employee.role === 'driver' || fine.employee.role === 'turnboy')) {
-            const newSalary = fine.employee.salary + fine.fine_cost;
-            await prisma_1.prisma.employee.update({
-                where: { id: fine.employee_id },
-                data: { salary: newSalary }
-            });
-        }
+        // Note: We do NOT modify employee.salary when fine is deleted
+        // Original Salary should remain constant (the base salary)
+        // Net Salary will be calculated as: Original Salary - Total Fines
         // Delete the fine
         await prisma_1.prisma.fine.delete({
             where: { id: fineId }
@@ -737,6 +557,212 @@ router.delete('/:id', async (req, res) => {
     catch (error) {
         console.error('Error deleting fine:', error);
         res.status(400).json({ error: 'Failed to delete fine' });
+    }
+});
+/**
+ * @swagger
+ * /api/fines/{id}/payments:
+ *   post:
+ *     tags: [Fines]
+ *     summary: Make a payment towards a fine
+ *     description: Records a partial or full payment for a fine
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: Fine ID
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - amount
+ *             properties:
+ *               amount:
+ *                 type: number
+ *                 example: 25000
+ *               payment_date:
+ *                 type: string
+ *                 format: date-time
+ *                 example: '2025-11-15T00:00:00.000Z'
+ *               notes:
+ *                 type: string
+ *                 example: 'Partial payment for November'
+ *     responses:
+ *       201:
+ *         description: Payment recorded successfully
+ *       400:
+ *         description: Invalid payment amount or fine already fully paid
+ *       404:
+ *         description: Fine not found
+ */
+router.post('/:id/payments', async (req, res) => {
+    try {
+        const fineId = parseInt(req.params.id);
+        const paymentAmount = parseFloat(req.body.amount);
+        if (!paymentAmount || paymentAmount <= 0) {
+            return res.status(400).json({ error: 'Payment amount must be greater than 0' });
+        }
+        // Get the fine with current payment status
+        const fine = await prisma_1.prisma.fine.findUnique({
+            where: { id: fineId },
+            include: {
+                employee: true,
+                payments: {
+                    orderBy: { payment_date: 'desc' }
+                }
+            }
+        });
+        if (!fine) {
+            return res.status(404).json({ error: 'Fine not found' });
+        }
+        // Calculate current remaining amount
+        const currentPaidAmount = fine.paid_amount || 0;
+        const currentRemainingAmount = fine.remaining_amount !== null && fine.remaining_amount !== undefined
+            ? fine.remaining_amount
+            : (fine.fine_cost - currentPaidAmount);
+        // Check if payment exceeds remaining amount
+        if (paymentAmount > currentRemainingAmount) {
+            return res.status(400).json({
+                error: `Payment amount (${paymentAmount}) exceeds remaining balance (${currentRemainingAmount})`
+            });
+        }
+        // Determine which payroll period this payment belongs to
+        const paymentDate = req.body.payment_date ? new Date(req.body.payment_date) : new Date();
+        const paymentYear = paymentDate.getFullYear();
+        const paymentMonth = paymentDate.getMonth() + 1;
+        // Get or create the payroll period for this payment
+        let payrollPeriod = await prisma_1.prisma.payrollPeriod.findFirst({
+            where: {
+                year: paymentYear,
+                month: paymentMonth
+            }
+        });
+        if (!payrollPeriod) {
+            const startDate = new Date(paymentYear, paymentMonth - 1, 1);
+            const endDate = new Date(paymentYear, paymentMonth, 0, 23, 59, 59, 999);
+            const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                'July', 'August', 'September', 'October', 'November', 'December'];
+            const periodName = `${monthNames[paymentMonth - 1]} ${paymentYear}`;
+            payrollPeriod = await prisma_1.prisma.payrollPeriod.create({
+                data: {
+                    year: paymentYear,
+                    month: paymentMonth,
+                    period_name: periodName,
+                    start_date: startDate,
+                    end_date: endDate,
+                    status: 'open'
+                }
+            });
+        }
+        // Create the payment record
+        const payment = await prisma_1.prisma.payment.create({
+            data: {
+                fine_id: fineId,
+                amount: paymentAmount,
+                payment_date: paymentDate,
+                payroll_period_id: payrollPeriod.id,
+                notes: req.body.notes || null,
+                created_by: null
+            }
+        });
+        // Update fine payment status
+        const newPaidAmount = currentPaidAmount + paymentAmount;
+        const newRemainingAmount = fine.fine_cost - newPaidAmount;
+        const newPayStatus = newRemainingAmount <= 0 ? 'paid' : 'unpaid';
+        await prisma_1.prisma.fine.update({
+            where: { id: fineId },
+            data: {
+                paid_amount: newPaidAmount,
+                remaining_amount: Math.max(0, newRemainingAmount), // Ensure it doesn't go negative
+                pay_status: newPayStatus
+            }
+        });
+        // Note: We do NOT update employee salary when payment is made
+        // Original Salary and Net Salary should remain unchanged
+        // Payments are tracked separately for accounting purposes only
+        // Net Salary = Original Salary - Total Fines (regardless of payment status)
+        // Get updated fine with payment
+        const updatedFine = await prisma_1.prisma.fine.findUnique({
+            where: { id: fineId },
+            include: {
+                employee: true,
+                payments: {
+                    orderBy: { payment_date: 'desc' },
+                    include: {
+                        payrollPeriod: true
+                    }
+                }
+            }
+        });
+        res.status(201).json({
+            message: 'Payment recorded successfully',
+            payment,
+            fine: updatedFine
+        });
+    }
+    catch (error) {
+        console.error('Error recording payment:', error);
+        res.status(500).json({ error: 'Failed to record payment', details: error instanceof Error ? error.message : 'Unknown error' });
+    }
+});
+/**
+ * @swagger
+ * /api/fines/{id}/payments:
+ *   get:
+ *     tags: [Fines]
+ *     summary: Get payment history for a fine
+ *     description: Retrieves all payments made towards a specific fine
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: Fine ID
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Payment history retrieved successfully
+ *       404:
+ *         description: Fine not found
+ */
+router.get('/:id/payments', async (req, res) => {
+    try {
+        const fineId = parseInt(req.params.id);
+        // Check if fine exists
+        const fine = await prisma_1.prisma.fine.findUnique({
+            where: { id: fineId }
+        });
+        if (!fine) {
+            return res.status(404).json({ error: 'Fine not found' });
+        }
+        // Get all payments for this fine
+        const payments = await prisma_1.prisma.payment.findMany({
+            where: { fine_id: fineId },
+            include: {
+                payrollPeriod: true
+            },
+            orderBy: { payment_date: 'desc' }
+        });
+        res.json({
+            fine: {
+                id: fine.id,
+                fine_cost: fine.fine_cost,
+                paid_amount: fine.paid_amount || 0,
+                remaining_amount: fine.remaining_amount || fine.fine_cost,
+                pay_status: fine.pay_status
+            },
+            payments,
+            total_paid: payments.reduce((sum, p) => sum + p.amount, 0)
+        });
+    }
+    catch (error) {
+        console.error('Error fetching payments:', error);
+        res.status(500).json({ error: 'Failed to fetch payments' });
     }
 });
 exports.default = router;

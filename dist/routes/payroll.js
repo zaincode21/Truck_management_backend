@@ -155,14 +155,27 @@ router.post('/process-month-end', async (req, res) => {
                 select: {
                     id: true,
                     fine_cost: true,
+                    paid_amount: true,
+                    remaining_amount: true,
                     fine_date: true,
                     employee_id: true
                 }
             });
+            // Calculate total fines for this period (all fines made in this period)
+            // This is the total amount of fines the employee made in this period
             const totalFines = fines.reduce((sum, fine) => sum + fine.fine_cost, 0);
-            // Calculate original salary (current salary + fines = original)
-            const originalSalary = employee.salary + totalFines;
-            const netSalary = originalSalary - totalFines; // This should equal employee.salary
+            // Original Salary = Employee's base salary (stored in employee.salary, constant)
+            // This is the salary set when employee was created/updated, doesn't change
+            const originalSalary = employee.salary;
+            // Get all fines for this employee (across all periods) to calculate net salary
+            const allFines = await prisma_1.prisma.fine.findMany({
+                where: { employee_id: employee.id },
+                select: { fine_cost: true }
+            });
+            const allFinesTotal = allFines.reduce((sum, fine) => sum + fine.fine_cost, 0);
+            // Net Salary = Original Salary - Total Fines (ALL fines, regardless of payment status)
+            // Payments do NOT affect net salary - they are tracked separately for accounting
+            const netSalary = originalSalary - allFinesTotal;
             // Update fines to link to this payroll period
             await prisma_1.prisma.fine.updateMany({
                 where: {
@@ -199,11 +212,9 @@ router.post('/process-month-end', async (req, res) => {
                     status: 'pending'
                 }
             });
-            // Reset employee salary to original (before fines)
-            await prisma_1.prisma.employee.update({
-                where: { id: employee.id },
-                data: { salary: originalSalary }
-            });
+            // Note: We do NOT modify employee.salary during payroll processing
+            // Original Salary (employee.salary) should remain constant
+            // Net Salary is calculated as: Original Salary - Total Fines
             return payrollRecord;
         }));
         // Mark period as processed

@@ -17,6 +17,7 @@ const analytics_1 = __importDefault(require("./routes/analytics"));
 const auth_1 = __importDefault(require("./routes/auth"));
 const payroll_1 = __importDefault(require("./routes/payroll"));
 const users_1 = __importDefault(require("./routes/users"));
+const settings_1 = __importDefault(require("./routes/settings"));
 const swagger_1 = require("./config/swagger");
 const logger_1 = require("./middleware/logger");
 const security_1 = require("./middleware/security");
@@ -39,7 +40,8 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
     : [
         'http://localhost:3000',
         'http://127.0.0.1:3000',
-        'https://truck-management-frontend.onrender.com'
+        'http://84.247.131.178:3000',
+        // 'https://truck-management-frontend.onrender.com'
     ];
 app.use((0, cors_1.default)({
     origin: (origin, callback) => {
@@ -98,6 +100,7 @@ app.use('/api/dashboard', dashboard_1.default);
 app.use('/api/analytics', analytics_1.default);
 app.use('/api/payroll', payroll_1.default);
 app.use('/api/users', users_1.default);
+app.use('/api/settings', settings_1.default);
 // Root route handler
 app.get('/', (req, res) => {
     response_1.ResponseHelper.success(res, {
