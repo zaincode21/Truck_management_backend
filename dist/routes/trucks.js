@@ -39,32 +39,28 @@ const router = (0, express_1.Router)();
  */
 router.get('/', async (req, res) => {
     try {
-        const { unassigned } = req.query;
+        const { unassigned, available } = req.query;
+        const whereClause = {};
         // If unassigned query param is true, return only trucks not assigned to employees
         if (unassigned === 'true') {
-            const trucks = await prisma_1.prisma.truck.findMany({
-                where: {
-                    employees: {
-                        none: {} // No employees assigned
-                    }
-                },
-                include: {
-                    _count: {
-                        select: { deliveries: true, expenses: true }
-                    }
-                },
-                orderBy: { license_plate: 'asc' }
-            });
-            return res.json(trucks);
+            whereClause.employees = {
+                none: {} // No employees assigned
+            };
         }
-        // Otherwise, return all trucks
+        // If available query param is true, exclude trucks with "in-work" status
+        if (available === 'true') {
+            whereClause.status = {
+                not: 'in-work'
+            };
+        }
         const trucks = await prisma_1.prisma.truck.findMany({
+            where: whereClause,
             include: {
                 _count: {
                     select: { deliveries: true, expenses: true }
                 }
             },
-            orderBy: { created_at: 'desc' }
+            orderBy: unassigned === 'true' ? { license_plate: 'asc' } : { created_at: 'desc' }
         });
         res.json(trucks);
     }

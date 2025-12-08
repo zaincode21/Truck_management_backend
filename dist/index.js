@@ -21,6 +21,8 @@ const settings_1 = __importDefault(require("./routes/settings"));
 const swagger_1 = require("./config/swagger");
 const logger_1 = require("./middleware/logger");
 const security_1 = require("./middleware/security");
+const accountLockout_1 = require("./middleware/accountLockout");
+const auditLogger_1 = require("./middleware/auditLogger");
 const rateLimiter_1 = require("./middleware/rateLimiter");
 const response_1 = require("./utils/response");
 // Authentication removed - API is now public
@@ -28,12 +30,16 @@ dotenv_1.default.config();
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 5000;
 // Trust proxy (for rate limiting and IP detection)
-app.set('trust proxy', 1);
+app.set('trust proxy', process.env.TRUST_PROXY === 'true' || 1);
 // Security Middleware (must be first)
 app.use(security_1.helmetConfig);
 app.use(security_1.securityHeaders);
+app.use(security_1.sanitizeInput); // Sanitize all inputs (XSS protection)
+app.use(security_1.preventHPP); // Prevent HTTP Parameter Pollution
 // Request Logger (must be early to capture all requests)
 app.use(logger_1.requestLogger);
+// Security Audit Logger
+app.use(auditLogger_1.auditLogger);
 // CORS configuration
 const allowedOrigins = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
@@ -63,9 +69,7 @@ app.use((0, cors_1.default)({
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
     exposedHeaders: ['X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset']
 }));
-// Rate Limiting (apply to all routes except health check)
-app.use('/api', (0, rateLimiter_1.rateLimiter)(15 * 60 * 1000, 100)); // 100 requests per 15 minutes
-// JSON body parser with error handling
+// JSON body parser with error handling (must be before account lockout middleware)
 app.use(express_1.default.json({
     limit: '10mb',
     strict: true
@@ -78,6 +82,16 @@ app.use((err, req, res, next) => {
     }
     next(err);
 });
+// Rate Limiting (apply to all routes except health check)
+// Speed limiter - slows down requests after limit
+app.use('/api', security_1.speedLimiter);
+// General API rate limit (keep legacy for backward compatibility)
+app.use('/api', (0, rateLimiter_1.rateLimiter)(15 * 60 * 1000, 100)); // 100 requests per 15 minutes
+// Enhanced rate limiting
+app.use('/api', security_1.apiLimiter);
+// Stricter rate limiting for authentication endpoints
+app.use('/api/auth/login', security_1.authLimiter);
+app.use('/api/auth/login', accountLockout_1.accountLockoutMiddleware); // Account lockout (now body is parsed)
 // Swagger Documentation - Public (no authentication required)
 // Anyone can view the API documentation, but they need auth to use the endpoints
 app.use('/api-docs', swagger_1.swaggerUi.serve, swagger_1.swaggerUi.setup(swagger_1.specs, {

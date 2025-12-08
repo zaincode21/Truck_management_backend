@@ -280,6 +280,185 @@ router.get('/period/:periodId/records', async (req, res) => {
     }
 });
 /**
+ * Close current month and start next month
+ * This closes the current period and automatically creates/opens the next period
+ */
+router.post('/close-month', async (req, res) => {
+    try {
+        // Authentication removed - user tracking disabled
+        const user = undefined;
+        const { year, month } = req.body;
+        // If year/month not provided, use current month
+        const now = new Date();
+        const currentYear = year ? parseInt(year) : now.getFullYear();
+        const currentMonth = month ? parseInt(month) : now.getMonth() + 1;
+        // Get current period
+        let currentPeriod = await prisma_1.prisma.payrollPeriod.findFirst({
+            where: {
+                year: currentYear,
+                month: currentMonth
+            }
+        });
+        // Create current period if it doesn't exist
+        if (!currentPeriod) {
+            const startDate = new Date(currentYear, currentMonth - 1, 1);
+            const endDate = new Date(currentYear, currentMonth, 0, 23, 59, 59, 999);
+            const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                'July', 'August', 'September', 'October', 'November', 'December'];
+            const periodName = `${monthNames[currentMonth - 1]} ${currentYear}`;
+            currentPeriod = await prisma_1.prisma.payrollPeriod.create({
+                data: {
+                    year: currentYear,
+                    month: currentMonth,
+                    period_name: periodName,
+                    start_date: startDate,
+                    end_date: endDate,
+                    status: 'open'
+                }
+            });
+        }
+        // Check if already closed
+        if (currentPeriod.status === 'closed' || currentPeriod.status === 'processed') {
+            return res.status(400).json({
+                error: `This period (${currentPeriod.period_name}) has already been closed or processed`
+            });
+        }
+        // Get summary of deliveries for the closing month
+        const startDate = new Date(currentYear, currentMonth - 1, 1);
+        const endDate = new Date(currentYear, currentMonth, 0, 23, 59, 59, 999);
+        const deliveries = await prisma_1.prisma.delivery.findMany({
+            where: {
+                delivery_date: {
+                    gte: startDate,
+                    lte: endDate
+                }
+            },
+            include: {
+                product: true,
+                truck: true,
+                employee: true
+            }
+        });
+        const deliverySummary = {
+            total: deliveries.length,
+            delivered: deliveries.filter(d => d.status === 'delivered').length,
+            pending: deliveries.filter(d => d.status === 'pending').length,
+            totalIncome: deliveries
+                .filter(d => d.status === 'delivered')
+                .reduce((sum, d) => sum + (d.total_income || 0), 0),
+            totalCost: deliveries.reduce((sum, d) => sum + (d.cost || 0) + (d.fuel_cost || 0), 0)
+        };
+        // Get expenses summary
+        const expenses = await prisma_1.prisma.expense.findMany({
+            where: {
+                expense_date: {
+                    gte: startDate,
+                    lte: endDate
+                }
+            }
+        });
+        const expenseSummary = {
+            total: expenses.length,
+            totalAmount: expenses.reduce((sum, e) => sum + (e.amount || 0), 0)
+        };
+        // Get fines summary
+        const fines = await prisma_1.prisma.fine.findMany({
+            where: {
+                fine_date: {
+                    gte: startDate,
+                    lte: endDate
+                }
+            }
+        });
+        const fineSummary = {
+            total: fines.length,
+            totalAmount: fines.reduce((sum, f) => sum + f.fine_cost, 0)
+        };
+        // Close current period
+        await prisma_1.prisma.payrollPeriod.update({
+            where: { id: currentPeriod.id },
+            data: {
+                status: 'closed',
+                processed_at: new Date(),
+                processed_by: null
+            }
+        });
+        // Calculate next month
+        let nextYear = currentYear;
+        let nextMonth = currentMonth + 1;
+        if (nextMonth > 12) {
+            nextMonth = 1;
+            nextYear = currentYear + 1;
+        }
+        // Create or get next period
+        let nextPeriod = await prisma_1.prisma.payrollPeriod.findFirst({
+            where: {
+                year: nextYear,
+                month: nextMonth
+            }
+        });
+        if (!nextPeriod) {
+            const nextStartDate = new Date(nextYear, nextMonth - 1, 1);
+            const nextEndDate = new Date(nextYear, nextMonth, 0, 23, 59, 59, 999);
+            const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                'July', 'August', 'September', 'October', 'November', 'December'];
+            const nextPeriodName = `${monthNames[nextMonth - 1]} ${nextYear}`;
+            nextPeriod = await prisma_1.prisma.payrollPeriod.create({
+                data: {
+                    year: nextYear,
+                    month: nextMonth,
+                    period_name: nextPeriodName,
+                    start_date: nextStartDate,
+                    end_date: nextEndDate,
+                    status: 'open'
+                }
+            });
+        }
+        else {
+            // If next period exists but is closed, reopen it
+            if (nextPeriod.status === 'closed') {
+                nextPeriod = await prisma_1.prisma.payrollPeriod.update({
+                    where: { id: nextPeriod.id },
+                    data: {
+                        status: 'open'
+                    }
+                });
+            }
+        }
+        res.json({
+            message: `Month closed successfully. ${nextPeriod.period_name} is now open.`,
+            closedPeriod: {
+                id: currentPeriod.id,
+                period_name: currentPeriod.period_name,
+                year: currentYear,
+                month: currentMonth,
+                status: 'closed',
+                closed_at: new Date()
+            },
+            nextPeriod: {
+                id: nextPeriod.id,
+                period_name: nextPeriod.period_name,
+                year: nextYear,
+                month: nextMonth,
+                status: nextPeriod.status
+            },
+            summary: {
+                deliveries: deliverySummary,
+                expenses: expenseSummary,
+                fines: fineSummary,
+                message: `All ${deliverySummary.total} deliveries from ${currentPeriod.period_name} have been preserved and saved.`
+            }
+        });
+    }
+    catch (error) {
+        console.error('Error closing month:', error);
+        res.status(500).json({
+            error: 'Failed to close month',
+            details: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+});
+/**
  * Get monthly summary report
  */
 router.get('/monthly-summary', async (req, res) => {
