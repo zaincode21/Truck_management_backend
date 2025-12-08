@@ -15,17 +15,7 @@ import usersRouter from './routes/users';
 import settingsRouter from './routes/settings';
 import { specs, swaggerUi } from './config/swagger';
 import { requestLogger, errorLogger, RequestWithId } from './middleware/logger';
-import { 
-  securityHeaders, 
-  helmetConfig, 
-  sanitizeInput, 
-  preventHPP,
-  apiLimiter,
-  authLimiter,
-  speedLimiter
-} from './middleware/security';
-import { accountLockoutMiddleware } from './middleware/accountLockout';
-import { auditLogger } from './middleware/auditLogger';
+import { securityHeaders, helmetConfig } from './middleware/security';
 import { rateLimiter } from './middleware/rateLimiter';
 import { ResponseHelper } from './utils/response';
 // Authentication removed - API is now public
@@ -36,19 +26,14 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Trust proxy (for rate limiting and IP detection)
-app.set('trust proxy', process.env.TRUST_PROXY === 'true' || 1);
+app.set('trust proxy', 1);
 
 // Security Middleware (must be first)
 app.use(helmetConfig);
 app.use(securityHeaders);
-app.use(sanitizeInput); // Sanitize all inputs (XSS protection)
-app.use(preventHPP); // Prevent HTTP Parameter Pollution
 
 // Request Logger (must be early to capture all requests)
 app.use(requestLogger);
-
-// Security Audit Logger
-app.use(auditLogger);
 
 // CORS configuration
 const allowedOrigins = process.env.ALLOWED_ORIGINS 
@@ -93,7 +78,10 @@ app.use(cors({
   exposedHeaders: ['X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset']
 }));
 
-// JSON body parser with error handling (must be before account lockout middleware)
+// Rate Limiting (apply to all routes except health check)
+app.use('/api', rateLimiter(15 * 60 * 1000, 100)); // 100 requests per 15 minutes
+
+// JSON body parser with error handling
 app.use(express.json({
   limit: '10mb',
   strict: true
@@ -113,17 +101,6 @@ app.use((err: any, req: RequestWithId, res: express.Response, next: express.Next
   }
   next(err);
 });
-
-// Rate Limiting (apply to all routes except health check)
-// Speed limiter - slows down requests after limit
-app.use('/api', speedLimiter);
-// General API rate limit (keep legacy for backward compatibility)
-app.use('/api', rateLimiter(15 * 60 * 1000, 100)); // 100 requests per 15 minutes
-// Enhanced rate limiting
-app.use('/api', apiLimiter);
-// Stricter rate limiting for authentication endpoints
-app.use('/api/auth/login', authLimiter);
-app.use('/api/auth/login', accountLockoutMiddleware); // Account lockout (now body is parsed)
 
 // Swagger Documentation - Public (no authentication required)
 // Anyone can view the API documentation, but they need auth to use the endpoints
