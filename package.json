@@ -2,7 +2,8 @@
   "name": "truck-management-server",
   "version": "1.0.0",
   "description": "Backend API for TruckFlow Management System",
-  "main": "dist/index.d.ts",
+  "type": "module",
+  "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
