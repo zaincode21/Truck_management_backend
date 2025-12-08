@@ -17,10 +17,12 @@ export declare const sanitizeInput: import("express").Handler;
 export declare const preventHPP: import("express").RequestHandler<import("express-serve-static-core").ParamsDictionary, any, any, import("qs").ParsedQs, Record<string, any>>;
 /**
  * General API rate limiter (stricter)
+ * Uses custom keyGenerator to work properly with trust proxy
  */
 export declare const apiLimiter: import("express-rate-limit").RateLimitRequestHandler;
 /**
  * Strict rate limiter for authentication endpoints
+ * Uses custom keyGenerator to work properly with trust proxy
  */
 export declare const authLimiter: import("express-rate-limit").RateLimitRequestHandler;
 /**

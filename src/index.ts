@@ -36,7 +36,8 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Trust proxy (for rate limiting and IP detection)
-app.set('trust proxy', process.env.TRUST_PROXY === 'true' || 1);
+// Only trust the first proxy (nginx) when behind a reverse proxy
+app.set('trust proxy', process.env.TRUST_PROXY === 'true' ? 1 : false);
 
 // Security Middleware (must be first)
 app.use(helmetConfig);

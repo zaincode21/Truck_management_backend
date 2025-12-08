@@ -236,17 +236,13 @@ router.post('/', async (req, res) => {
         // Authentication removed - user tracking disabled
         const user = undefined;
         // Validate required fields
-        if (!req.body.name || !req.body.email || !req.body.phone || !req.body.hire_date || !req.body.role || req.body.salary === undefined) {
-            return res.status(400).json({ error: 'Missing required fields: name, email, phone, hire_date, role, salary' });
+        if (!req.body.name || !req.body.email || !req.body.phone || !req.body.license_number || !req.body.hire_date || !req.body.role || req.body.salary === undefined) {
+            return res.status(400).json({ error: 'Missing required fields: name, email, phone, license_number, hire_date, role, salary' });
         }
         // Validate role
         const validRoles = ['driver', 'turnboy', 'admin', 'views'];
         if (!validRoles.includes(req.body.role)) {
             return res.status(400).json({ error: `Invalid role. Must be one of: ${validRoles.join(', ')}` });
-        }
-        // License number is required for drivers, optional for turnboys
-        if (req.body.role === 'driver' && !req.body.license_number) {
-            return res.status(400).json({ error: 'License number is required for drivers' });
         }
         // Validate salary is a positive number
         const salary = parseFloat(req.body.salary);
@@ -276,7 +272,7 @@ router.post('/', async (req, res) => {
                 name: req.body.name.trim(),
                 email: req.body.email.trim(),
                 phone: req.body.phone.trim(),
-                license_number: req.body.license_number ? req.body.license_number.trim() : null,
+                license_number: req.body.license_number.trim(),
                 hire_date: new Date(req.body.hire_date),
                 status: req.body.status || 'active',
                 role: req.body.role,
@@ -369,17 +365,11 @@ router.post('/', async (req, res) => {
  */
 router.put('/:id', async (req, res) => {
     try {
-        // Get current employee to check role
-        const currentEmployee = await prisma_1.prisma.employee.findUnique({
-            where: { id: parseInt(req.params.id) }
-        });
-        if (!currentEmployee) {
-            return res.status(404).json({ error: 'Employee not found' });
-        }
         const updateData = {
             name: req.body.name,
             email: req.body.email,
             phone: req.body.phone,
+            license_number: req.body.license_number,
             hire_date: new Date(req.body.hire_date),
             status: req.body.status,
             truck_id: req.body.truck_id ? parseInt(req.body.truck_id) : null
@@ -391,19 +381,6 @@ router.put('/:id', async (req, res) => {
                 return res.status(400).json({ error: `Invalid role. Must be one of: ${validRoles.join(', ')}` });
             }
             updateData.role = req.body.role;
-        }
-        // Handle license_number based on role
-        const role = req.body.role || currentEmployee.role;
-        if (role === 'driver') {
-            // License number is required for drivers
-            if (!req.body.license_number) {
-                return res.status(400).json({ error: 'License number is required for drivers' });
-            }
-            updateData.license_number = req.body.license_number.trim();
-        }
-        else {
-            // License number is optional/null for turnboys
-            updateData.license_number = req.body.license_number ? req.body.license_number.trim() : null;
         }
         // Update salary if provided
         if (req.body.salary !== undefined) {
