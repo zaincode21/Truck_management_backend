@@ -65,7 +65,6 @@ export const preventHPP = hpp({
 
 /**
  * General API rate limiter (stricter)
- * Uses custom keyGenerator to work properly with trust proxy
  */
 export const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -73,13 +72,6 @@ export const apiLimiter = rateLimit({
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => {
-    // Get IP from X-Forwarded-For header (from nginx) or direct connection
-    return req.headers['x-forwarded-for']?.toString().split(',')[0].trim() || 
-           req.ip || 
-           req.socket.remoteAddress || 
-           'unknown';
-  },
   skip: (req) => {
     // Skip rate limiting for health checks
     return req.path === '/health' || req.path === '/';
@@ -88,7 +80,6 @@ export const apiLimiter = rateLimit({
 
 /**
  * Strict rate limiter for authentication endpoints
- * Uses custom keyGenerator to work properly with trust proxy
  */
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -96,13 +87,6 @@ export const authLimiter = rateLimit({
   message: 'Too many login attempts, please try again after 15 minutes.',
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => {
-    // Get IP from X-Forwarded-For header (from nginx) or direct connection
-    return req.headers['x-forwarded-for']?.toString().split(',')[0].trim() || 
-           req.ip || 
-           req.socket.remoteAddress || 
-           'unknown';
-  },
   skipSuccessfulRequests: true, // Don't count successful requests
 });
 

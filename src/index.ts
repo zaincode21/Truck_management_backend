@@ -36,8 +36,7 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Trust proxy (for rate limiting and IP detection)
-// Only trust the first proxy (nginx) when behind a reverse proxy
-app.set('trust proxy', process.env.TRUST_PROXY === 'true' ? 1 : false);
+app.set('trust proxy', process.env.TRUST_PROXY === 'true' || 1);
 
 // Security Middleware (must be first)
 app.use(helmetConfig);
@@ -62,6 +61,8 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
       'https://hardrocksupplies.com',
       'http://www.hardrocksupplies.com',
       'https://www.hardrocksupplies.com',
+      'http://api.hardrocksupplies.com',
+      'https://api.hardrocksupplies.com',
     ];
 
 app.use(cors({
@@ -69,11 +70,22 @@ app.use(cors({
     // Allow requests with no origin (mobile apps, Postman, etc.)
     if (!origin) return callback(null, true);
     
-    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
+    // Development mode - allow all origins
+    if (process.env.NODE_ENV === 'development') {
+      return callback(null, true);
     }
+    
+    // Check exact matches
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      return callback(null, true);
+    }
+    
+    // Allow all hardrocksupplies.com subdomains in production
+    if (origin.endsWith('.hardrocksupplies.com') || origin === 'https://hardrocksupplies.com' || origin === 'http://hardrocksupplies.com') {
+      return callback(null, true);
+    }
+    
+    callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
