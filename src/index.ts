@@ -51,31 +51,8 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
     ];
 
 app.use(cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin (mobile apps, Postman, etc.)
-    if (!origin) return callback(null, true);
-    
-    // Development mode - allow all origins
-    if (process.env.NODE_ENV === 'development') {
-      return callback(null, true);
-    }
-    
-    // Check exact matches
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      return callback(null, true);
-    }
-    
-    // Allow all hardrocksupplies.com subdomains in production
-    if (origin.endsWith('.hardrocksupplies.com') || origin === 'https://hardrocksupplies.com' || origin === 'http://hardrocksupplies.com') {
-      return callback(null, true);
-    }
-    
-    callback(new Error('Not allowed by CORS'));
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
-  exposedHeaders: ['X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset']
+  origin: true, // Allow all origins temporarily
+  credentials: true
 }));
 
 // Rate Limiting (apply to all routes except health check)
