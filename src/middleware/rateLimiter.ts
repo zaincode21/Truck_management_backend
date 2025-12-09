@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { ResponseHelper } from '../utils/response';
+import { ResponseHelper } from '../utils/response.js';
 
 /**
  * Simple in-memory rate limiter
