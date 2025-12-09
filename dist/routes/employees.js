@@ -1,9 +1,7 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-const express_1 = require("express");
-const prisma_1 = require("../lib/prisma");
+import { Router } from 'express';
+import { prisma } from '../lib/prisma.js';
 // Authentication removed - API is now public
-const router = (0, express_1.Router)();
+const router = Router();
 /**
  * @swagger
  * /api/employees:
@@ -45,7 +43,7 @@ router.get('/', async (req, res) => {
                 not: 'in-work'
             };
         }
-        const employees = await prisma_1.prisma.employee.findMany({
+        const employees = await prisma.employee.findMany({
             where: whereClause,
             include: {
                 truck: true,
@@ -63,7 +61,7 @@ router.get('/', async (req, res) => {
             // Get total fines for this employee (drivers and turnboys have fines deducted)
             let totalFines = 0;
             if (employee.role === 'driver' || employee.role === 'turnboy') {
-                const fines = await prisma_1.prisma.fine.findMany({
+                const fines = await prisma.fine.findMany({
                     where: { employee_id: employee.id },
                     select: { fine_cost: true }
                 });
@@ -137,7 +135,7 @@ router.get('/', async (req, res) => {
  */
 router.get('/:id', async (req, res) => {
     try {
-        const employee = await prisma_1.prisma.employee.findUnique({
+        const employee = await prisma.employee.findUnique({
             where: { id: parseInt(req.params.id) },
             include: {
                 truck: true,
@@ -254,7 +252,7 @@ router.post('/', async (req, res) => {
         if (req.body.truck_id) {
             truckId = parseInt(req.body.truck_id);
             // Check if truck exists and is not already assigned
-            const truck = await prisma_1.prisma.truck.findUnique({
+            const truck = await prisma.truck.findUnique({
                 where: { id: truckId },
                 include: {
                     employees: true
@@ -267,7 +265,7 @@ router.post('/', async (req, res) => {
                 return res.status(400).json({ error: `This truck is already assigned to another employee. Please select a different truck.` });
             }
         }
-        const employee = await prisma_1.prisma.employee.create({
+        const employee = await prisma.employee.create({
             data: {
                 name: req.body.name.trim(),
                 email: req.body.email.trim(),
@@ -390,7 +388,7 @@ router.put('/:id', async (req, res) => {
             }
             updateData.salary = salary;
         }
-        const employee = await prisma_1.prisma.employee.update({
+        const employee = await prisma.employee.update({
             where: { id: parseInt(req.params.id) },
             data: updateData
         });
@@ -429,7 +427,7 @@ router.put('/:id', async (req, res) => {
  */
 router.delete('/:id', async (req, res) => {
     try {
-        await prisma_1.prisma.employee.delete({
+        await prisma.employee.delete({
             where: { id: parseInt(req.params.id) }
         });
         res.status(204).send();
@@ -438,5 +436,5 @@ router.delete('/:id', async (req, res) => {
         res.status(400).json({ error: 'Failed to delete employee' });
     }
 });
-exports.default = router;
+export default router;
 //# sourceMappingURL=employees.js.map

@@ -1,8 +1,6 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-const express_1 = require("express");
-const prisma_1 = require("../lib/prisma");
-const router = (0, express_1.Router)();
+import { Router } from 'express';
+import { prisma } from '../lib/prisma.js';
+const router = Router();
 /**
  * @swagger
  * /api/products:
@@ -28,7 +26,7 @@ const router = (0, express_1.Router)();
  */
 router.get('/', async (req, res) => {
     try {
-        const products = await prisma_1.prisma.product.findMany({
+        const products = await prisma.product.findMany({
             include: {
                 _count: {
                     select: { deliveries: true }
@@ -79,7 +77,7 @@ router.get('/', async (req, res) => {
  */
 router.get('/:id', async (req, res) => {
     try {
-        const product = await prisma_1.prisma.product.findUnique({
+        const product = await prisma.product.findUnique({
             where: { id: parseInt(req.params.id) },
             include: {
                 deliveries: true
@@ -152,7 +150,7 @@ router.post('/', async (req, res) => {
         if (!req.body.name || !req.body.description) {
             return res.status(400).json({ error: 'Missing required fields: name and description are required' });
         }
-        const product = await prisma_1.prisma.product.create({
+        const product = await prisma.product.create({
             data: {
                 name: req.body.name.trim(),
                 description: req.body.description.trim(),
@@ -233,7 +231,7 @@ router.post('/', async (req, res) => {
  */
 router.put('/:id', async (req, res) => {
     try {
-        const product = await prisma_1.prisma.product.update({
+        const product = await prisma.product.update({
             where: { id: parseInt(req.params.id) },
             data: {
                 name: req.body.name,
@@ -278,7 +276,7 @@ router.put('/:id', async (req, res) => {
  */
 router.delete('/:id', async (req, res) => {
     try {
-        await prisma_1.prisma.product.delete({
+        await prisma.product.delete({
             where: { id: parseInt(req.params.id) }
         });
         res.status(204).send();
@@ -287,5 +285,5 @@ router.delete('/:id', async (req, res) => {
         res.status(400).json({ error: 'Failed to delete product' });
     }
 });
-exports.default = router;
+export default router;
 //# sourceMappingURL=trucks_backup.js.map

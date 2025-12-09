@@ -1,18 +1,15 @@
-"use strict";
 /**
  * Migration script to initialize payment fields for existing fines
  * This script sets remaining_amount for fines that don't have it set
  * Run this once after deploying the payment system
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.initFinePayments = initFinePayments;
-const prisma_1 = require("../lib/prisma");
+import { prisma } from '../lib/prisma.js';
 async function initFinePayments() {
     try {
         console.log('🔄 Initializing payment fields for existing fines...');
         // Get all fines that don't have remaining_amount set
         // paid_amount has a default of 0, so we check for remaining_amount being null
-        const fines = await prisma_1.prisma.fine.findMany({
+        const fines = await prisma.fine.findMany({
             where: {
                 remaining_amount: null
             },
@@ -30,7 +27,7 @@ async function initFinePayments() {
             const remainingAmount = fine.remaining_amount !== null && fine.remaining_amount !== undefined
                 ? fine.remaining_amount
                 : (fine.fine_cost - paidAmount);
-            await prisma_1.prisma.fine.update({
+            await prisma.fine.update({
                 where: { id: fine.id },
                 data: {
                     paid_amount: paidAmount,
@@ -51,7 +48,7 @@ async function initFinePayments() {
         throw error;
     }
     finally {
-        await prisma_1.prisma.$disconnect();
+        await prisma.$disconnect();
     }
 }
 // Run if called directly
@@ -66,4 +63,5 @@ if (require.main === module) {
         process.exit(1);
     });
 }
+export { initFinePayments };
 //# sourceMappingURL=init-fine-payments.js.map

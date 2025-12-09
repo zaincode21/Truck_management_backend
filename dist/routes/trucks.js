@@ -1,9 +1,7 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-const express_1 = require("express");
-const prisma_1 = require("../lib/prisma");
+import { Router } from 'express';
+import { prisma } from '../lib/prisma.js';
 // Authentication removed - API is now public
-const router = (0, express_1.Router)();
+const router = Router();
 /**
  * @swagger
  * /api/trucks:
@@ -53,7 +51,7 @@ router.get('/', async (req, res) => {
                 not: 'in-work'
             };
         }
-        const trucks = await prisma_1.prisma.truck.findMany({
+        const trucks = await prisma.truck.findMany({
             where: whereClause,
             include: {
                 _count: {
@@ -120,7 +118,7 @@ router.get('/', async (req, res) => {
  */
 router.get('/:id', async (req, res) => {
     try {
-        const truck = await prisma_1.prisma.truck.findUnique({
+        const truck = await prisma.truck.findUnique({
             where: { id: parseInt(req.params.id) },
             include: {
                 deliveries: true,
@@ -199,7 +197,7 @@ router.post('/', async (req, res) => {
                 error: 'Please provide a valid year'
             });
         }
-        const truck = await prisma_1.prisma.truck.create({
+        const truck = await prisma.truck.create({
             data: {
                 license_plate: req.body.license_plate.trim(),
                 model: req.body.model.trim(),
@@ -289,7 +287,7 @@ router.post('/', async (req, res) => {
  */
 router.put('/:id', async (req, res) => {
     try {
-        const truck = await prisma_1.prisma.truck.update({
+        const truck = await prisma.truck.update({
             where: { id: parseInt(req.params.id) },
             data: {
                 license_plate: req.body.license_plate,
@@ -334,7 +332,7 @@ router.put('/:id', async (req, res) => {
  */
 router.delete('/:id', async (req, res) => {
     try {
-        await prisma_1.prisma.truck.delete({
+        await prisma.truck.delete({
             where: { id: parseInt(req.params.id) }
         });
         res.status(204).send();
@@ -343,5 +341,5 @@ router.delete('/:id', async (req, res) => {
         res.status(400).json({ error: 'Failed to delete truck' });
     }
 });
-exports.default = router;
+export default router;
 //# sourceMappingURL=trucks.js.map

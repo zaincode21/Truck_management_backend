@@ -1,13 +1,7 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-const express_1 = require("express");
-const prisma_1 = require("../lib/prisma");
-const jwt_1 = require("../utils/jwt");
-const password_1 = require("../utils/password");
-const sanitize_1 = require("../utils/sanitize");
-const accountLockout_1 = require("../middleware/accountLockout");
-const auth_1 = require("../middleware/auth");
-const router = (0, express_1.Router)();
+import { Router } from 'express';
+import { prisma } from '../lib/prisma.js';
+import bcrypt from 'bcryptjs';
+const router = Router();
 /**
  * @swagger
  * /api/auth/login:
@@ -98,26 +92,16 @@ router.post('/login', async (req, res) => {
                 error: 'Email and password are required'
             });
         }
-        // Sanitize and normalize email
-        let normalizedEmail;
-        try {
-            normalizedEmail = (0, sanitize_1.sanitizeEmail)(email);
-        }
-        catch (error) {
-            return res.status(400).json({
-                success: false,
-                error: 'Invalid email format'
-            });
-        }
         // Check if it's a User (admin/views) login
-        const user = await prisma_1.prisma.user.findUnique({
+        // Normalize email for lookup
+        const normalizedEmail = email.toLowerCase().trim();
+        const user = await prisma.user.findUnique({
             where: { email: normalizedEmail }
         });
         if (user) {
             // Verify password using bcrypt
-            const passwordMatch = await (0, password_1.comparePassword)(password, user.password);
+            const passwordMatch = await bcrypt.compare(password, user.password);
             if (!passwordMatch) {
-                (0, accountLockout_1.recordFailedAttempt)(normalizedEmail);
                 console.error('Login failed - Password mismatch:', {
                     email: normalizedEmail,
                     userId: user.id,
@@ -135,19 +119,9 @@ router.post('/login', async (req, res) => {
                     error: 'Your account is not active. Please contact administrator.'
                 });
             }
-            // Clear failed attempts on successful login
-            (0, accountLockout_1.clearFailedAttempts)(normalizedEmail);
-            // Generate JWT tokens
-            const accessToken = (0, jwt_1.generateAccessToken)({
-                id: user.id.toString(),
-                email: user.email,
-                role: user.role
-            });
-            const refreshToken = (0, jwt_1.generateRefreshToken)({
-                id: user.id.toString(),
-                email: user.email,
-                role: user.role
-            });
+            // Generate token for user
+            const token = Buffer.from(`user:${user.id}:${normalizedEmail}:${Date.now()}`).toString('base64');
+            const expiresIn = rememberMe ? '30d' : '1d';
             return res.json({
                 success: true,
                 message: 'Login successful',
@@ -157,34 +131,38 @@ router.post('/login', async (req, res) => {
                     name: user.name,
                     role: user.role
                 },
-                token: accessToken,
-                refreshToken: refreshToken,
-                expiresIn: rememberMe ? '7d' : '24h'
+                token,
+                expiresIn
             });
         }
         // Check if it's an employee/driver login
-        const employee = await prisma_1.prisma.employee.findUnique({
-            where: { email: normalizedEmail },
+        // Try to find employee by email
+        const employee = await prisma.employee.findUnique({
+            where: { email: email.toLowerCase().trim() },
             include: {
                 truck: true
             }
         });
         if (employee) {
             // Check if employee has a password set
-            let passwordMatch = false;
             if (employee.password) {
-                passwordMatch = await (0, password_1.comparePassword)(password, employee.password);
+                // Verify password using bcrypt
+                const passwordMatch = await bcrypt.compare(password, employee.password);
+                if (!passwordMatch) {
+                    return res.status(401).json({
+                        success: false,
+                        error: 'Invalid email or password'
+                    });
+                }
             }
             else {
                 // Backward compatibility: check default password "driver123"
-                passwordMatch = password === 'driver123';
-            }
-            if (!passwordMatch) {
-                (0, accountLockout_1.recordFailedAttempt)(normalizedEmail);
-                return res.status(401).json({
-                    success: false,
-                    error: 'Invalid email or password'
-                });
+                if (password !== 'driver123') {
+                    return res.status(401).json({
+                        success: false,
+                        error: 'Invalid email or password'
+                    });
+                }
             }
             // Check if employee is active
             if (employee.status !== 'active') {
@@ -193,25 +171,11 @@ router.post('/login', async (req, res) => {
                     error: 'Your account is not active. Please contact administrator.'
                 });
             }
-            // Clear failed attempts on successful login
-            (0, accountLockout_1.clearFailedAttempts)(normalizedEmail);
+            // Generate token for driver/employee
+            const token = Buffer.from(`employee:${employee.id}:${email}:${Date.now()}`).toString('base64');
+            const expiresIn = rememberMe ? '30d' : '1d';
             // Use role from database, default to 'driver' if not set
             const userRole = employee.role || 'driver';
-            // Generate JWT tokens
-            const accessToken = (0, jwt_1.generateAccessToken)({
-                id: employee.id.toString(),
-                email: employee.email,
-                role: userRole,
-                employee_id: employee.id,
-                truck_id: employee.truck_id
-            });
-            const refreshToken = (0, jwt_1.generateRefreshToken)({
-                id: employee.id.toString(),
-                email: employee.email,
-                role: userRole,
-                employee_id: employee.id,
-                truck_id: employee.truck_id
-            });
             return res.json({
                 success: true,
                 message: 'Login successful',
@@ -223,13 +187,11 @@ router.post('/login', async (req, res) => {
                     employee_id: employee.id,
                     truck_id: employee.truck_id
                 },
-                token: accessToken,
-                refreshToken: refreshToken,
-                expiresIn: rememberMe ? '7d' : '24h'
+                token,
+                expiresIn
             });
         }
         // Invalid credentials
-        (0, accountLockout_1.recordFailedAttempt)(normalizedEmail);
         return res.status(401).json({
             success: false,
             error: 'Invalid email or password'
@@ -346,7 +308,7 @@ router.get('/verify', async (req, res) => {
             else if (parts[0] === 'user') {
                 // User (admin/views from users table)
                 const userId = parseInt(parts[1]);
-                const user = await prisma_1.prisma.user.findUnique({
+                const user = await prisma.user.findUnique({
                     where: { id: userId }
                 });
                 if (!user || user.status !== 'active') {
@@ -368,7 +330,7 @@ router.get('/verify', async (req, res) => {
             else if (parts[0] === 'employee') {
                 // Employee/Driver user
                 const employeeId = parseInt(parts[1]);
-                const employee = await prisma_1.prisma.employee.findUnique({
+                const employee = await prisma.employee.findUnique({
                     where: { id: employeeId },
                     include: { truck: true }
                 });
@@ -457,7 +419,7 @@ router.get('/me', async (req, res) => {
             else if (parts[0] === 'user') {
                 // User (admin/views from users table)
                 const userId = parseInt(parts[1]);
-                const user = await prisma_1.prisma.user.findUnique({
+                const user = await prisma.user.findUnique({
                     where: { id: userId }
                 });
                 if (!user || user.status !== 'active') {
@@ -479,7 +441,7 @@ router.get('/me', async (req, res) => {
             else if (parts[0] === 'employee') {
                 // Employee/Driver user
                 const employeeId = parseInt(parts[1]);
-                const employee = await prisma_1.prisma.employee.findUnique({
+                const employee = await prisma.employee.findUnique({
                     where: { id: employeeId },
                     include: { truck: true }
                 });
@@ -599,7 +561,7 @@ router.put('/profile', async (req, res) => {
                         error: 'No fields to update'
                     });
                 }
-                const user = await prisma_1.prisma.user.update({
+                const user = await prisma.user.update({
                     where: { id: userId },
                     data: updateData
                 });
@@ -630,7 +592,7 @@ router.put('/profile', async (req, res) => {
                         error: 'No fields to update'
                     });
                 }
-                const employee = await prisma_1.prisma.employee.update({
+                const employee = await prisma.employee.update({
                     where: { id: employeeId },
                     data: updateData,
                     include: { truck: true }
@@ -707,7 +669,7 @@ router.put('/profile', async (req, res) => {
  *       401:
  *         description: Not authenticated or invalid current password
  */
-router.post('/change-password', auth_1.authenticateUser, async (req, res) => {
+router.post('/change-password', async (req, res) => {
     try {
         const { currentPassword, newPassword } = req.body;
         if (!currentPassword || !newPassword) {
@@ -716,94 +678,104 @@ router.post('/change-password', auth_1.authenticateUser, async (req, res) => {
                 error: 'Current password and new password are required'
             });
         }
-        // Validate password strength
-        const validation = (0, password_1.validatePassword)(newPassword);
-        if (!validation.valid) {
+        if (newPassword.length < 6) {
             return res.status(400).json({
                 success: false,
-                error: 'Password does not meet requirements',
-                details: validation.errors
+                error: 'New password must be at least 6 characters long'
             });
         }
-        if (!req.user) {
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
             return res.status(401).json({
                 success: false,
                 error: 'Not authenticated'
             });
         }
-        // Handle user password change
-        if (req.user.role === 'admin' || req.user.role === 'views') {
-            const userId = parseInt(req.user.id);
-            const user = await prisma_1.prisma.user.findUnique({
-                where: { id: userId }
-            });
-            if (!user) {
-                return res.status(404).json({
-                    success: false,
-                    error: 'User not found'
+        const token = authHeader.substring(7);
+        try {
+            const decoded = Buffer.from(token, 'base64').toString('utf-8');
+            const parts = decoded.split(':');
+            if (parts[0] === 'user') {
+                // For users (admin/views), verify current password
+                const userId = parseInt(parts[1]);
+                const user = await prisma.user.findUnique({
+                    where: { id: userId }
+                });
+                if (!user) {
+                    return res.status(404).json({
+                        success: false,
+                        error: 'User not found'
+                    });
+                }
+                // Verify password using bcrypt
+                const passwordMatch = await bcrypt.compare(currentPassword, user.password);
+                if (!passwordMatch) {
+                    return res.status(401).json({
+                        success: false,
+                        error: 'Current password is incorrect'
+                    });
+                }
+                // Update password in database with bcrypt
+                const hashedPassword = await bcrypt.hash(newPassword, 10);
+                await prisma.user.update({
+                    where: { id: userId },
+                    data: { password: hashedPassword }
+                });
+                return res.json({
+                    success: true,
+                    message: 'Password changed successfully'
                 });
             }
-            // Verify current password
-            const passwordMatch = await (0, password_1.comparePassword)(currentPassword, user.password);
-            if (!passwordMatch) {
-                return res.status(401).json({
-                    success: false,
-                    error: 'Current password is incorrect'
+            else if (parts[0] === 'employee') {
+                // For employees, verify current password
+                const employeeId = parseInt(parts[1]);
+                const employee = await prisma.employee.findUnique({
+                    where: { id: employeeId }
                 });
-            }
-            // Update password with stronger hashing
-            const hashedPassword = await (0, password_1.hashPassword)(newPassword, 12);
-            await prisma_1.prisma.user.update({
-                where: { id: userId },
-                data: { password: hashedPassword }
-            });
-            return res.json({
-                success: true,
-                message: 'Password changed successfully'
-            });
-        }
-        // Handle employee password change
-        else if (req.user.employee_id) {
-            const employeeId = req.user.employee_id;
-            const employee = await prisma_1.prisma.employee.findUnique({
-                where: { id: employeeId }
-            });
-            if (!employee) {
-                return res.status(404).json({
-                    success: false,
-                    error: 'Employee not found'
+                if (!employee) {
+                    return res.status(404).json({
+                        success: false,
+                        error: 'Employee not found'
+                    });
+                }
+                // Check if employee has a password set
+                let passwordMatch = false;
+                if (employee.password) {
+                    // Verify password using bcrypt
+                    passwordMatch = await bcrypt.compare(currentPassword, employee.password);
+                }
+                else {
+                    // Backward compatibility: check default password "driver123"
+                    passwordMatch = currentPassword === 'driver123';
+                }
+                if (!passwordMatch) {
+                    return res.status(401).json({
+                        success: false,
+                        error: 'Current password is incorrect'
+                    });
+                }
+                // Update password in database with bcrypt
+                const hashedPassword = await bcrypt.hash(newPassword, 10);
+                await prisma.employee.update({
+                    where: { id: employeeId },
+                    data: { password: hashedPassword }
                 });
-            }
-            // Check if employee has a password set
-            let passwordMatch = false;
-            if (employee.password) {
-                passwordMatch = await (0, password_1.comparePassword)(currentPassword, employee.password);
+                return res.json({
+                    success: true,
+                    message: 'Password changed successfully'
+                });
             }
             else {
-                // Backward compatibility: check default password "driver123"
-                passwordMatch = currentPassword === 'driver123';
-            }
-            if (!passwordMatch) {
                 return res.status(401).json({
                     success: false,
-                    error: 'Current password is incorrect'
+                    error: 'Invalid token format'
                 });
             }
-            // Update password with stronger hashing
-            const hashedPassword = await (0, password_1.hashPassword)(newPassword, 12);
-            await prisma_1.prisma.employee.update({
-                where: { id: employeeId },
-                data: { password: hashedPassword }
-            });
-            return res.json({
-                success: true,
-                message: 'Password changed successfully'
-            });
         }
-        else {
+        catch (error) {
             return res.status(401).json({
                 success: false,
-                error: 'Invalid user type'
+                error: 'Invalid token'
             });
         }
     }
@@ -815,5 +787,5 @@ router.post('/change-password', auth_1.authenticateUser, async (req, res) => {
         });
     }
 });
-exports.default = router;
+export default router;
 //# sourceMappingURL=auth.js.map

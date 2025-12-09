@@ -1,12 +1,9 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.rateLimiter = rateLimiter;
-const response_1 = require("../utils/response");
+import { ResponseHelper } from '../utils/response.js';
 const store = {};
 /**
  * Rate Limiter Middleware
  */
-function rateLimiter(windowMs = 15 * 60 * 1000, // 15 minutes
+export function rateLimiter(windowMs = 15 * 60 * 1000, // 15 minutes
 maxRequests = 100 // 100 requests per window
 ) {
     return (req, res, next) => {
@@ -38,7 +35,7 @@ maxRequests = 100 // 100 requests per window
         res.setHeader('X-RateLimit-Reset', new Date(store[key].resetTime).toISOString());
         // Check if limit exceeded
         if (store[key].count > maxRequests) {
-            return response_1.ResponseHelper.error(res, 'Too many requests, please try again later', 429, 'Rate limit exceeded', undefined, {
+            return ResponseHelper.error(res, 'Too many requests, please try again later', 429, 'Rate limit exceeded', undefined, {
                 timestamp: new Date().toISOString(),
             });
         }

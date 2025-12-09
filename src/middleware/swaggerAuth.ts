@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { authenticateUser, AuthRequest } from './auth';
+import { authenticateUser, AuthRequest } from './auth.js';
 
 /**
  * Swagger UI Authentication Middleware

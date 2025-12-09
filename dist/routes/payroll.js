@@ -1,9 +1,7 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-const express_1 = require("express");
-const prisma_1 = require("../lib/prisma");
+import { Router } from 'express';
+import { prisma } from '../lib/prisma.js';
 // Authentication removed - API is now public
-const router = (0, express_1.Router)();
+const router = Router();
 /**
  * Get or create current payroll period
  */
@@ -13,7 +11,7 @@ router.get('/current-period', async (req, res) => {
         const year = now.getFullYear();
         const month = now.getMonth() + 1; // 1-12
         // Check if period exists
-        let period = await prisma_1.prisma.payrollPeriod.findFirst({
+        let period = await prisma.payrollPeriod.findFirst({
             where: {
                 year,
                 month
@@ -36,7 +34,7 @@ router.get('/current-period', async (req, res) => {
             const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
                 'July', 'August', 'September', 'October', 'November', 'December'];
             const periodName = `${monthNames[month - 1]} ${year}`;
-            period = await prisma_1.prisma.payrollPeriod.create({
+            period = await prisma.payrollPeriod.create({
                 data: {
                     year,
                     month,
@@ -69,7 +67,7 @@ router.get('/current-period', async (req, res) => {
  */
 router.get('/periods', async (req, res) => {
     try {
-        const periods = await prisma_1.prisma.payrollPeriod.findMany({
+        const periods = await prisma.payrollPeriod.findMany({
             orderBy: [
                 { year: 'desc' },
                 { month: 'desc' }
@@ -102,7 +100,7 @@ router.post('/process-month-end', async (req, res) => {
             return res.status(400).json({ error: 'Year and month are required' });
         }
         // Get or create the payroll period
-        let period = await prisma_1.prisma.payrollPeriod.findFirst({
+        let period = await prisma.payrollPeriod.findFirst({
             where: {
                 year: parseInt(year),
                 month: parseInt(month)
@@ -114,7 +112,7 @@ router.post('/process-month-end', async (req, res) => {
             const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
                 'July', 'August', 'September', 'October', 'November', 'December'];
             const periodName = `${monthNames[month - 1]} ${year}`;
-            period = await prisma_1.prisma.payrollPeriod.create({
+            period = await prisma.payrollPeriod.create({
                 data: {
                     year: parseInt(year),
                     month: parseInt(month),
@@ -130,7 +128,7 @@ router.post('/process-month-end', async (req, res) => {
             return res.status(400).json({ error: 'This period has already been processed' });
         }
         // Get all employees (drivers and turnboys)
-        const employees = await prisma_1.prisma.employee.findMany({
+        const employees = await prisma.employee.findMany({
             where: {
                 role: {
                     in: ['driver', 'turnboy']
@@ -144,7 +142,7 @@ router.post('/process-month-end', async (req, res) => {
         const payrollRecords = await Promise.all(employees.map(async (employee) => {
             // Get fines for this employee in this period
             // Use select to avoid issues with missing columns
-            const fines = await prisma_1.prisma.fine.findMany({
+            const fines = await prisma.fine.findMany({
                 where: {
                     employee_id: employee.id,
                     fine_date: {
@@ -168,7 +166,7 @@ router.post('/process-month-end', async (req, res) => {
             // This is the salary set when employee was created/updated, doesn't change
             const originalSalary = employee.salary;
             // Get all fines for this employee (across all periods) to calculate net salary
-            const allFines = await prisma_1.prisma.fine.findMany({
+            const allFines = await prisma.fine.findMany({
                 where: { employee_id: employee.id },
                 select: { fine_cost: true }
             });
@@ -177,7 +175,7 @@ router.post('/process-month-end', async (req, res) => {
             // Payments do NOT affect net salary - they are tracked separately for accounting
             const netSalary = originalSalary - allFinesTotal;
             // Update fines to link to this payroll period
-            await prisma_1.prisma.fine.updateMany({
+            await prisma.fine.updateMany({
                 where: {
                     employee_id: employee.id,
                     fine_date: {
@@ -191,7 +189,7 @@ router.post('/process-month-end', async (req, res) => {
                 }
             });
             // Create or update payroll record
-            const payrollRecord = await prisma_1.prisma.payrollRecord.upsert({
+            const payrollRecord = await prisma.payrollRecord.upsert({
                 where: {
                     payroll_period_id_employee_id: {
                         payroll_period_id: period.id,
@@ -218,7 +216,7 @@ router.post('/process-month-end', async (req, res) => {
             return payrollRecord;
         }));
         // Mark period as processed
-        await prisma_1.prisma.payrollPeriod.update({
+        await prisma.payrollPeriod.update({
             where: { id: period.id },
             data: {
                 status: 'processed',
@@ -227,7 +225,7 @@ router.post('/process-month-end', async (req, res) => {
             }
         });
         // Get updated period with records
-        const updatedPeriod = await prisma_1.prisma.payrollPeriod.findUnique({
+        const updatedPeriod = await prisma.payrollPeriod.findUnique({
             where: { id: period.id },
             include: {
                 payrollRecords: {
@@ -254,7 +252,7 @@ router.post('/process-month-end', async (req, res) => {
 router.get('/period/:periodId/records', async (req, res) => {
     try {
         const periodId = parseInt(req.params.periodId);
-        const records = await prisma_1.prisma.payrollRecord.findMany({
+        const records = await prisma.payrollRecord.findMany({
             where: {
                 payroll_period_id: periodId
             },
@@ -293,7 +291,7 @@ router.post('/close-month', async (req, res) => {
         const currentYear = year ? parseInt(year) : now.getFullYear();
         const currentMonth = month ? parseInt(month) : now.getMonth() + 1;
         // Get current period
-        let currentPeriod = await prisma_1.prisma.payrollPeriod.findFirst({
+        let currentPeriod = await prisma.payrollPeriod.findFirst({
             where: {
                 year: currentYear,
                 month: currentMonth
@@ -306,7 +304,7 @@ router.post('/close-month', async (req, res) => {
             const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
                 'July', 'August', 'September', 'October', 'November', 'December'];
             const periodName = `${monthNames[currentMonth - 1]} ${currentYear}`;
-            currentPeriod = await prisma_1.prisma.payrollPeriod.create({
+            currentPeriod = await prisma.payrollPeriod.create({
                 data: {
                     year: currentYear,
                     month: currentMonth,
@@ -326,7 +324,7 @@ router.post('/close-month', async (req, res) => {
         // Get summary of deliveries for the closing month
         const startDate = new Date(currentYear, currentMonth - 1, 1);
         const endDate = new Date(currentYear, currentMonth, 0, 23, 59, 59, 999);
-        const deliveries = await prisma_1.prisma.delivery.findMany({
+        const deliveries = await prisma.delivery.findMany({
             where: {
                 delivery_date: {
                     gte: startDate,
@@ -349,7 +347,7 @@ router.post('/close-month', async (req, res) => {
             totalCost: deliveries.reduce((sum, d) => sum + (d.cost || 0) + (d.fuel_cost || 0), 0)
         };
         // Get expenses summary
-        const expenses = await prisma_1.prisma.expense.findMany({
+        const expenses = await prisma.expense.findMany({
             where: {
                 expense_date: {
                     gte: startDate,
@@ -362,7 +360,7 @@ router.post('/close-month', async (req, res) => {
             totalAmount: expenses.reduce((sum, e) => sum + (e.amount || 0), 0)
         };
         // Get fines summary
-        const fines = await prisma_1.prisma.fine.findMany({
+        const fines = await prisma.fine.findMany({
             where: {
                 fine_date: {
                     gte: startDate,
@@ -375,7 +373,7 @@ router.post('/close-month', async (req, res) => {
             totalAmount: fines.reduce((sum, f) => sum + f.fine_cost, 0)
         };
         // Close current period
-        await prisma_1.prisma.payrollPeriod.update({
+        await prisma.payrollPeriod.update({
             where: { id: currentPeriod.id },
             data: {
                 status: 'closed',
@@ -391,7 +389,7 @@ router.post('/close-month', async (req, res) => {
             nextYear = currentYear + 1;
         }
         // Create or get next period
-        let nextPeriod = await prisma_1.prisma.payrollPeriod.findFirst({
+        let nextPeriod = await prisma.payrollPeriod.findFirst({
             where: {
                 year: nextYear,
                 month: nextMonth
@@ -403,7 +401,7 @@ router.post('/close-month', async (req, res) => {
             const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
                 'July', 'August', 'September', 'October', 'November', 'December'];
             const nextPeriodName = `${monthNames[nextMonth - 1]} ${nextYear}`;
-            nextPeriod = await prisma_1.prisma.payrollPeriod.create({
+            nextPeriod = await prisma.payrollPeriod.create({
                 data: {
                     year: nextYear,
                     month: nextMonth,
@@ -417,7 +415,7 @@ router.post('/close-month', async (req, res) => {
         else {
             // If next period exists but is closed, reopen it
             if (nextPeriod.status === 'closed') {
-                nextPeriod = await prisma_1.prisma.payrollPeriod.update({
+                nextPeriod = await prisma.payrollPeriod.update({
                     where: { id: nextPeriod.id },
                     data: {
                         status: 'open'
@@ -471,7 +469,7 @@ router.get('/monthly-summary', async (req, res) => {
         const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999);
         // Get fines summary
         // Use select to avoid issues with missing columns (pay_status, payroll_period_id)
-        const fines = await prisma_1.prisma.fine.findMany({
+        const fines = await prisma.fine.findMany({
             where: {
                 fine_date: {
                     gte: startDate,
@@ -513,7 +511,7 @@ router.get('/monthly-summary', async (req, res) => {
             return acc;
         }, {});
         // Get deliveries summary
-        const deliveries = await prisma_1.prisma.delivery.findMany({
+        const deliveries = await prisma.delivery.findMany({
             where: {
                 delivery_date: {
                     gte: startDate,
@@ -536,7 +534,7 @@ router.get('/monthly-summary', async (req, res) => {
             deliveries
         };
         // Get expenses summary
-        const expenses = await prisma_1.prisma.expense.findMany({
+        const expenses = await prisma.expense.findMany({
             where: {
                 expense_date: {
                     gte: startDate,
@@ -559,7 +557,7 @@ router.get('/monthly-summary', async (req, res) => {
             expenses
         };
         // Get payroll records if period exists
-        const period = await prisma_1.prisma.payrollPeriod.findFirst({
+        const period = await prisma.payrollPeriod.findFirst({
             where: {
                 year: parseInt(year),
                 month: parseInt(month)
@@ -597,5 +595,5 @@ router.get('/monthly-summary', async (req, res) => {
         res.status(500).json({ error: 'Failed to get monthly summary' });
     }
 });
-exports.default = router;
+export default router;
 //# sourceMappingURL=payroll.js.map

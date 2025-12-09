@@ -1,13 +1,8 @@
-"use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-const express_1 = require("express");
-const prisma_1 = require("../lib/prisma");
+import { Router } from 'express';
+import { prisma } from '../lib/prisma.js';
 // Authentication removed - API is now public
-const bcryptjs_1 = __importDefault(require("bcryptjs"));
-const router = (0, express_1.Router)();
+import bcrypt from 'bcryptjs';
+const router = Router();
 /**
  * @swagger
  * /api/users:
@@ -23,7 +18,7 @@ const router = (0, express_1.Router)();
  */
 router.get('/', async (req, res) => {
     try {
-        const users = await prisma_1.prisma.user.findMany({
+        const users = await prisma.user.findMany({
             include: {
                 creator: {
                     select: {
@@ -67,7 +62,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
     try {
         const userId = parseInt(req.params.id);
-        const user = await prisma_1.prisma.user.findUnique({
+        const user = await prisma.user.findUnique({
             where: { id: userId },
             include: {
                 creator: {
@@ -147,7 +142,7 @@ router.post('/', async (req, res) => {
             });
         }
         // Check if email already exists
-        const existingUser = await prisma_1.prisma.user.findUnique({
+        const existingUser = await prisma.user.findUnique({
             where: { email: req.body.email.toLowerCase().trim() }
         });
         if (existingUser) {
@@ -156,7 +151,7 @@ router.post('/', async (req, res) => {
             });
         }
         // Hash password
-        const hashedPassword = await bcryptjs_1.default.hash(req.body.password, 10);
+        const hashedPassword = await bcrypt.hash(req.body.password, 10);
         // Get creator user ID
         // Note: Currently authentication uses Employee model, not User model
         // For now, we'll set created_by to null
@@ -164,7 +159,7 @@ router.post('/', async (req, res) => {
         // We could also look up if the current user's email exists in the users table
         let createdBy = null;
         // Authentication removed - created_by tracking disabled
-        const newUser = await prisma_1.prisma.user.create({
+        const newUser = await prisma.user.create({
             data: {
                 name: req.body.name.trim(),
                 email: req.body.email.toLowerCase().trim(),
@@ -239,7 +234,7 @@ router.put('/:id', async (req, res) => {
     try {
         const userId = parseInt(req.params.id);
         // Check if user exists
-        const existingUser = await prisma_1.prisma.user.findUnique({
+        const existingUser = await prisma.user.findUnique({
             where: { id: userId }
         });
         if (!existingUser) {
@@ -256,7 +251,7 @@ router.put('/:id', async (req, res) => {
         }
         // Check if email is being changed and if it's already taken
         if (req.body.email && req.body.email !== existingUser.email) {
-            const emailExists = await prisma_1.prisma.user.findUnique({
+            const emailExists = await prisma.user.findUnique({
                 where: { email: req.body.email.toLowerCase().trim() }
             });
             if (emailExists) {
@@ -274,9 +269,9 @@ router.put('/:id', async (req, res) => {
         };
         // Hash password if provided
         if (req.body.password) {
-            updateData.password = await bcryptjs_1.default.hash(req.body.password, 10);
+            updateData.password = await bcrypt.hash(req.body.password, 10);
         }
-        const updatedUser = await prisma_1.prisma.user.update({
+        const updatedUser = await prisma.user.update({
             where: { id: userId },
             data: updateData,
             include: {
@@ -327,7 +322,7 @@ router.delete('/:id', async (req, res) => {
     try {
         const userId = parseInt(req.params.id);
         // Check if user exists
-        const user = await prisma_1.prisma.user.findUnique({
+        const user = await prisma.user.findUnique({
             where: { id: userId }
         });
         if (!user) {
@@ -336,7 +331,7 @@ router.delete('/:id', async (req, res) => {
         // Prevent deleting yourself
         // Note: This will need to be updated when we implement User authentication
         // For now, we'll allow deletion
-        await prisma_1.prisma.user.delete({
+        await prisma.user.delete({
             where: { id: userId }
         });
         res.json({ message: 'User deleted successfully' });
@@ -346,5 +341,5 @@ router.delete('/:id', async (req, res) => {
         res.status(400).json({ error: error.message || 'Failed to delete user' });
     }
 });
-exports.default = router;
+export default router;
 //# sourceMappingURL=users.js.map

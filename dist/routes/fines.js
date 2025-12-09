@@ -1,9 +1,7 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-const express_1 = require("express");
-const prisma_1 = require("../lib/prisma");
+import { Router } from 'express';
+import { prisma } from '../lib/prisma.js';
 // Authentication removed - API is now public
-const router = (0, express_1.Router)();
+const router = Router();
 /**
  * @swagger
  * /api/fines:
@@ -30,7 +28,7 @@ router.get('/', async (req, res) => {
         // Build query - no filtering for drivers
         const where = {};
         // Use select to avoid issues with missing columns (pay_status, payroll_period_id)
-        const fines = await prisma_1.prisma.fine.findMany({
+        const fines = await prisma.fine.findMany({
             where,
             select: {
                 id: true,
@@ -109,7 +107,7 @@ router.get('/:id', async (req, res) => {
     try {
         const fineId = parseInt(req.params.id);
         // Use select to avoid issues with missing columns
-        const fine = await prisma_1.prisma.fine.findUnique({
+        const fine = await prisma.fine.findUnique({
             where: { id: fineId },
             select: {
                 id: true,
@@ -220,7 +218,7 @@ router.post('/', async (req, res) => {
         const fineCost = parseFloat(req.body.fine_cost);
         const employeeId = parseInt(req.body.employee_id);
         // Get the employee to check if they are a driver and get their current salary
-        const employee = await prisma_1.prisma.employee.findUnique({
+        const employee = await prisma.employee.findUnique({
             where: { id: employeeId }
         });
         if (!employee) {
@@ -231,7 +229,7 @@ router.post('/', async (req, res) => {
         const fineYear = fineDate.getFullYear();
         const fineMonth = fineDate.getMonth() + 1;
         // Get or create the payroll period for this fine
-        let payrollPeriod = await prisma_1.prisma.payrollPeriod.findFirst({
+        let payrollPeriod = await prisma.payrollPeriod.findFirst({
             where: {
                 year: fineYear,
                 month: fineMonth
@@ -243,7 +241,7 @@ router.post('/', async (req, res) => {
             const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
                 'July', 'August', 'September', 'October', 'November', 'December'];
             const periodName = `${monthNames[fineMonth - 1]} ${fineYear}`;
-            payrollPeriod = await prisma_1.prisma.payrollPeriod.create({
+            payrollPeriod = await prisma.payrollPeriod.create({
                 data: {
                     year: fineYear,
                     month: fineMonth,
@@ -281,7 +279,7 @@ router.post('/', async (req, res) => {
         catch (e) {
             // Columns don't exist, continue without them
         }
-        const fine = await prisma_1.prisma.fine.create({
+        const fine = await prisma.fine.create({
             data: fineData,
             select: {
                 id: true,
@@ -386,7 +384,7 @@ router.put('/:id', async (req, res) => {
         const fineId = parseInt(req.params.id);
         // Get the existing fine first to check employee and handle salary changes
         // Use select to avoid issues with missing columns
-        const existingFine = await prisma_1.prisma.fine.findUnique({
+        const existingFine = await prisma.fine.findUnique({
             where: { id: fineId },
             select: {
                 id: true,
@@ -438,7 +436,7 @@ router.put('/:id', async (req, res) => {
         if (req.body.pay_status !== undefined) {
             updateData.pay_status = req.body.pay_status;
         }
-        const fine = await prisma_1.prisma.fine.update({
+        const fine = await prisma.fine.update({
             where: { id: parseInt(req.params.id) },
             data: updateData,
             select: {
@@ -520,7 +518,7 @@ router.delete('/:id', async (req, res) => {
         const fineId = parseInt(req.params.id);
         // Get the fine first to check employee and restore salary if needed
         // Use select to avoid issues with missing columns
-        const fine = await prisma_1.prisma.fine.findUnique({
+        const fine = await prisma.fine.findUnique({
             where: { id: fineId },
             select: {
                 id: true,
@@ -549,7 +547,7 @@ router.delete('/:id', async (req, res) => {
         // Original Salary should remain constant (the base salary)
         // Net Salary will be calculated as: Original Salary - Total Fines
         // Delete the fine
-        await prisma_1.prisma.fine.delete({
+        await prisma.fine.delete({
             where: { id: fineId }
         });
         res.status(204).send();
@@ -608,7 +606,7 @@ router.post('/:id/payments', async (req, res) => {
             return res.status(400).json({ error: 'Payment amount must be greater than 0' });
         }
         // Get the fine with current payment status
-        const fine = await prisma_1.prisma.fine.findUnique({
+        const fine = await prisma.fine.findUnique({
             where: { id: fineId },
             include: {
                 employee: true,
@@ -636,7 +634,7 @@ router.post('/:id/payments', async (req, res) => {
         const paymentYear = paymentDate.getFullYear();
         const paymentMonth = paymentDate.getMonth() + 1;
         // Get or create the payroll period for this payment
-        let payrollPeriod = await prisma_1.prisma.payrollPeriod.findFirst({
+        let payrollPeriod = await prisma.payrollPeriod.findFirst({
             where: {
                 year: paymentYear,
                 month: paymentMonth
@@ -648,7 +646,7 @@ router.post('/:id/payments', async (req, res) => {
             const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
                 'July', 'August', 'September', 'October', 'November', 'December'];
             const periodName = `${monthNames[paymentMonth - 1]} ${paymentYear}`;
-            payrollPeriod = await prisma_1.prisma.payrollPeriod.create({
+            payrollPeriod = await prisma.payrollPeriod.create({
                 data: {
                     year: paymentYear,
                     month: paymentMonth,
@@ -660,7 +658,7 @@ router.post('/:id/payments', async (req, res) => {
             });
         }
         // Create the payment record
-        const payment = await prisma_1.prisma.payment.create({
+        const payment = await prisma.payment.create({
             data: {
                 fine_id: fineId,
                 amount: paymentAmount,
@@ -674,7 +672,7 @@ router.post('/:id/payments', async (req, res) => {
         const newPaidAmount = currentPaidAmount + paymentAmount;
         const newRemainingAmount = fine.fine_cost - newPaidAmount;
         const newPayStatus = newRemainingAmount <= 0 ? 'paid' : 'unpaid';
-        await prisma_1.prisma.fine.update({
+        await prisma.fine.update({
             where: { id: fineId },
             data: {
                 paid_amount: newPaidAmount,
@@ -687,7 +685,7 @@ router.post('/:id/payments', async (req, res) => {
         // Payments are tracked separately for accounting purposes only
         // Net Salary = Original Salary - Total Fines (regardless of payment status)
         // Get updated fine with payment
-        const updatedFine = await prisma_1.prisma.fine.findUnique({
+        const updatedFine = await prisma.fine.findUnique({
             where: { id: fineId },
             include: {
                 employee: true,
@@ -734,14 +732,14 @@ router.get('/:id/payments', async (req, res) => {
     try {
         const fineId = parseInt(req.params.id);
         // Check if fine exists
-        const fine = await prisma_1.prisma.fine.findUnique({
+        const fine = await prisma.fine.findUnique({
             where: { id: fineId }
         });
         if (!fine) {
             return res.status(404).json({ error: 'Fine not found' });
         }
         // Get all payments for this fine
-        const payments = await prisma_1.prisma.payment.findMany({
+        const payments = await prisma.payment.findMany({
             where: { fine_id: fineId },
             include: {
                 payrollPeriod: true
@@ -765,5 +763,5 @@ router.get('/:id/payments', async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch payments' });
     }
 });
-exports.default = router;
+export default router;
 //# sourceMappingURL=fines.js.map

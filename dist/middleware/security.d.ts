@@ -1,32 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
 /**
- * Enhanced Security Headers Middleware
+ * Security Headers Middleware
+ * Adds security headers to all responses
  */
 export declare function securityHeaders(req: Request, res: Response, next: NextFunction): void;
 /**
- * Enhanced Helmet configuration
+ * Helmet configuration for additional security
  */
 export declare const helmetConfig: (req: import("http").IncomingMessage, res: import("http").ServerResponse, next: (err?: unknown) => void) => void;
-/**
- * Data sanitization middleware
- */
-export declare const sanitizeInput: import("express").Handler;
-/**
- * Prevent HTTP Parameter Pollution
- */
-export declare const preventHPP: import("express").RequestHandler<import("express-serve-static-core").ParamsDictionary, any, any, import("qs").ParsedQs, Record<string, any>>;
-/**
- * General API rate limiter (stricter)
- * Uses custom keyGenerator to work properly with trust proxy
- */
-export declare const apiLimiter: import("express-rate-limit").RateLimitRequestHandler;
-/**
- * Strict rate limiter for authentication endpoints
- * Uses custom keyGenerator to work properly with trust proxy
- */
-export declare const authLimiter: import("express-rate-limit").RateLimitRequestHandler;
-/**
- * Speed limiter - slows down requests after limit
- */
-export declare const speedLimiter: import("express-rate-limit").RateLimitRequestHandler;
 //# sourceMappingURL=security.d.ts.map

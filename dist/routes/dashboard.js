@@ -1,8 +1,6 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-const express_1 = require("express");
-const prisma_1 = require("../lib/prisma");
-const router = (0, express_1.Router)();
+import { Router } from 'express';
+import { prisma } from '../lib/prisma.js';
+const router = Router();
 /**
  * @swagger
  * /api/dashboard/stats:
@@ -27,20 +25,20 @@ const router = (0, express_1.Router)();
 router.get('/stats', async (req, res) => {
     try {
         const [totalTrucks, activeTrucks, totalEmployees, activeEmployees, totalDeliveries, pendingDeliveries, inTransitDeliveries, deliveredDeliveries, totalProducts, totalExpenses, totalRevenue] = await Promise.all([
-            prisma_1.prisma.truck.count(),
-            prisma_1.prisma.truck.count({ where: { status: 'active' } }),
-            prisma_1.prisma.employee.count(),
-            prisma_1.prisma.employee.count({ where: { status: 'active' } }),
-            prisma_1.prisma.delivery.count(),
-            prisma_1.prisma.delivery.count({ where: { status: 'pending' } }),
-            prisma_1.prisma.delivery.count({ where: { status: 'in-transit' } }),
-            prisma_1.prisma.delivery.count({ where: { status: 'delivered' } }),
-            prisma_1.prisma.product.count(),
-            prisma_1.prisma.expense.aggregate({
+            prisma.truck.count(),
+            prisma.truck.count({ where: { status: 'active' } }),
+            prisma.employee.count(),
+            prisma.employee.count({ where: { status: 'active' } }),
+            prisma.delivery.count(),
+            prisma.delivery.count({ where: { status: 'pending' } }),
+            prisma.delivery.count({ where: { status: 'in-transit' } }),
+            prisma.delivery.count({ where: { status: 'delivered' } }),
+            prisma.product.count(),
+            prisma.expense.aggregate({
                 where: { expense_type: { not: 'other' } },
                 _sum: { amount: true }
             }),
-            prisma_1.prisma.delivery.aggregate({ _sum: { total_income: true } })
+            prisma.delivery.aggregate({ _sum: { total_income: true } })
         ]);
         res.json({
             trucks: {
@@ -98,7 +96,7 @@ router.get('/stats', async (req, res) => {
  */
 router.get('/recent-deliveries', async (req, res) => {
     try {
-        const deliveries = await prisma_1.prisma.delivery.findMany({
+        const deliveries = await prisma.delivery.findMany({
             take: 5,
             include: {
                 product: true,
@@ -138,7 +136,7 @@ router.get('/recent-deliveries', async (req, res) => {
  */
 router.get('/recent-expenses', async (req, res) => {
     try {
-        const expenses = await prisma_1.prisma.expense.findMany({
+        const expenses = await prisma.expense.findMany({
             take: 5,
             include: {
                 truck: true
@@ -151,5 +149,5 @@ router.get('/recent-expenses', async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch recent expenses' });
     }
 });
-exports.default = router;
+export default router;
 //# sourceMappingURL=dashboard.js.map

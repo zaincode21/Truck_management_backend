@@ -1,7 +1,4 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.ResponseHelper = void 0;
-class ResponseHelper {
+export class ResponseHelper {
     /**
      * Send success response
      */
@@ -84,5 +81,4 @@ class ResponseHelper {
         });
     }
 }
-exports.ResponseHelper = ResponseHelper;
 //# sourceMappingURL=response.js.map

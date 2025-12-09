@@ -1,11 +1,8 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.validateRequest = validateRequest;
-const response_1 = require("../utils/response");
+import { ResponseHelper } from '../utils/response.js';
 /**
  * Request Validator Middleware
  */
-function validateRequest(rules) {
+export function validateRequest(rules) {
     return (req, res, next) => {
         const errors = {};
         for (const rule of rules) {
@@ -96,7 +93,7 @@ function validateRequest(rules) {
             }
         }
         if (Object.keys(errors).length > 0) {
-            return response_1.ResponseHelper.validationError(res, 'Validation failed', errors);
+            return ResponseHelper.validationError(res, 'Validation failed', errors);
         }
         next();
     };

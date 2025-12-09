@@ -1,11 +1,7 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.requestLogger = requestLogger;
-exports.errorLogger = errorLogger;
-const uuid_1 = require("uuid");
-function requestLogger(req, res, next) {
+import { v4 as uuidv4 } from 'uuid';
+export function requestLogger(req, res, next) {
     // Generate unique request ID
-    req.requestId = (0, uuid_1.v4)();
+    req.requestId = uuidv4();
     req.startTime = Date.now();
     // Log request
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} - Request ID: ${req.requestId}`);
@@ -21,7 +17,7 @@ function requestLogger(req, res, next) {
 /**
  * Error Logger
  */
-function errorLogger(err, req, res, next) {
+export function errorLogger(err, req, res, next) {
     console.error(`[${new Date().toISOString()}] ERROR - Request ID: ${req.requestId || 'unknown'}`);
     console.error('Error Details:', {
         message: err.message,

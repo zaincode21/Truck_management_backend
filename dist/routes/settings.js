@@ -1,8 +1,6 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-const express_1 = require("express");
-const prisma_1 = require("../lib/prisma");
-const router = (0, express_1.Router)();
+import { Router } from 'express';
+import { prisma } from '../lib/prisma.js';
+const router = Router();
 /**
  * @swagger
  * /api/settings:
@@ -18,10 +16,10 @@ const router = (0, express_1.Router)();
  */
 router.get('/', async (req, res) => {
     try {
-        const appSettings = await prisma_1.prisma.settings.findUnique({
+        const appSettings = await prisma.settings.findUnique({
             where: { setting_type: 'app' }
         });
-        const companySettings = await prisma_1.prisma.settings.findUnique({
+        const companySettings = await prisma.settings.findUnique({
             where: { setting_type: 'company' }
         });
         res.json({
@@ -80,7 +78,7 @@ router.get('/', async (req, res) => {
 router.put('/app', async (req, res) => {
     try {
         const { currency, date_format, language, theme, items_per_page } = req.body;
-        const settings = await prisma_1.prisma.settings.upsert({
+        const settings = await prisma.settings.upsert({
             where: { setting_type: 'app' },
             update: {
                 currency: currency || null,
@@ -140,7 +138,7 @@ router.put('/app', async (req, res) => {
 router.put('/company', async (req, res) => {
     try {
         const { company_name, company_email, company_phone, company_address, company_city, company_website } = req.body;
-        const settings = await prisma_1.prisma.settings.upsert({
+        const settings = await prisma.settings.upsert({
             where: { setting_type: 'company' },
             update: {
                 company_name: company_name || null,
@@ -167,5 +165,5 @@ router.put('/company', async (req, res) => {
         res.status(500).json({ error: 'Failed to update company settings' });
     }
 });
-exports.default = router;
+export default router;
 //# sourceMappingURL=settings.js.map

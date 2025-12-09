@@ -1,9 +1,7 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-const express_1 = require("express");
-const prisma_1 = require("../lib/prisma");
+import { Router } from 'express';
+import { prisma } from '../lib/prisma.js';
 // Authentication removed - API is now public
-const router = (0, express_1.Router)();
+const router = Router();
 /**
  * @swagger
  * /api/expenses:
@@ -31,7 +29,7 @@ router.get('/', async (req, res) => {
     try {
         // Authentication removed - no filtering
         const where = {};
-        const expenses = await prisma_1.prisma.expense.findMany({
+        const expenses = await prisma.expense.findMany({
             where,
             include: {
                 truck: true,
@@ -83,7 +81,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
     try {
         const expenseId = parseInt(req.params.id);
-        const expense = await prisma_1.prisma.expense.findUnique({
+        const expense = await prisma.expense.findUnique({
             where: { id: expenseId },
             include: {
                 truck: true
@@ -161,7 +159,7 @@ router.post('/', async (req, res) => {
         // Authentication removed - user tracking disabled
         const user = undefined;
         // Drivers can create expenses for any truck (no longer tied to a specific truck)
-        const expense = await prisma_1.prisma.expense.create({
+        const expense = await prisma.expense.create({
             data: {
                 car_id: parseInt(req.body.car_id),
                 delivery_id: req.body.delivery_id ? parseInt(req.body.delivery_id) : null,
@@ -189,7 +187,7 @@ router.post('/', async (req, res) => {
             }
             else {
                 // If no delivery, get the first active employee as default
-                const defaultEmployee = await prisma_1.prisma.employee.findFirst({
+                const defaultEmployee = await prisma.employee.findFirst({
                     where: { status: 'active' },
                     orderBy: { id: 'asc' }
                 });
@@ -199,7 +197,7 @@ router.post('/', async (req, res) => {
                 employeeId = defaultEmployee.id;
             }
             // Create OtherExpense entry
-            await prisma_1.prisma.otherExpense.create({
+            await prisma.otherExpense.create({
                 data: {
                     car_id: expense.car_id,
                     delivery_id: expense.delivery_id,
@@ -210,7 +208,7 @@ router.post('/', async (req, res) => {
                 }
             });
             // Create Fine entry with unpaid status
-            await prisma_1.prisma.fine.create({
+            await prisma.fine.create({
                 data: {
                     car_id: expense.car_id,
                     employee_id: employeeId,
@@ -299,7 +297,7 @@ router.put('/:id', async (req, res) => {
         const expenseId = parseInt(req.params.id);
         // Drivers can edit expenses for any truck (no longer tied to a specific truck)
         // Check if expense exists
-        const existingExpense = await prisma_1.prisma.expense.findUnique({
+        const existingExpense = await prisma.expense.findUnique({
             where: { id: expenseId },
             include: {
                 otherExpense: true
@@ -310,7 +308,7 @@ router.put('/:id', async (req, res) => {
         }
         const wasOther = existingExpense.expense_type === 'other';
         const isNowOther = req.body.expense_type === 'other';
-        const expense = await prisma_1.prisma.expense.update({
+        const expense = await prisma.expense.update({
             where: { id: parseInt(req.params.id) },
             data: {
                 car_id: parseInt(req.body.car_id),
@@ -337,7 +335,7 @@ router.put('/:id', async (req, res) => {
                 employeeId = expense.delivery.employee_id;
             }
             else {
-                const defaultEmployee = await prisma_1.prisma.employee.findFirst({
+                const defaultEmployee = await prisma.employee.findFirst({
                     where: { status: 'active' },
                     orderBy: { id: 'asc' }
                 });
@@ -346,7 +344,7 @@ router.put('/:id', async (req, res) => {
                 }
                 employeeId = defaultEmployee.id;
             }
-            await prisma_1.prisma.otherExpense.create({
+            await prisma.otherExpense.create({
                 data: {
                     car_id: expense.car_id,
                     delivery_id: expense.delivery_id,
@@ -356,7 +354,7 @@ router.put('/:id', async (req, res) => {
                     description: expense.description
                 }
             });
-            await prisma_1.prisma.fine.create({
+            await prisma.fine.create({
                 data: {
                     car_id: expense.car_id,
                     employee_id: employeeId,
@@ -374,7 +372,7 @@ router.put('/:id', async (req, res) => {
             // Expense changed from "other" to something else - delete OtherExpense and Fine entries
             if (existingExpense.otherExpense) {
                 // Find and delete the fine associated with this expense
-                const fineToDelete = await prisma_1.prisma.fine.findFirst({
+                const fineToDelete = await prisma.fine.findFirst({
                     where: {
                         delivery_id: existingExpense.delivery_id,
                         fine_type: 'other_expense',
@@ -383,11 +381,11 @@ router.put('/:id', async (req, res) => {
                     }
                 });
                 if (fineToDelete) {
-                    await prisma_1.prisma.fine.delete({
+                    await prisma.fine.delete({
                         where: { id: fineToDelete.id }
                     });
                 }
-                await prisma_1.prisma.otherExpense.delete({
+                await prisma.otherExpense.delete({
                     where: { expense_id: expense.id }
                 });
             }
@@ -395,7 +393,7 @@ router.put('/:id', async (req, res) => {
         else if (isNowOther && wasOther) {
             // Expense type remains "other" - update OtherExpense and Fine entries
             if (existingExpense.otherExpense) {
-                await prisma_1.prisma.otherExpense.update({
+                await prisma.otherExpense.update({
                     where: { expense_id: expense.id },
                     data: {
                         car_id: expense.car_id,
@@ -407,7 +405,7 @@ router.put('/:id', async (req, res) => {
                 });
                 // Find and update the fine entry associated with this expense
                 // Match by delivery_id, fine_type, and approximate amount/date
-                const fineToUpdate = await prisma_1.prisma.fine.findFirst({
+                const fineToUpdate = await prisma.fine.findFirst({
                     where: {
                         delivery_id: expense.delivery_id,
                         fine_type: 'other_expense',
@@ -416,7 +414,7 @@ router.put('/:id', async (req, res) => {
                     }
                 });
                 if (fineToUpdate) {
-                    await prisma_1.prisma.fine.update({
+                    await prisma.fine.update({
                         where: { id: fineToUpdate.id },
                         data: {
                             car_id: expense.car_id,
@@ -466,7 +464,7 @@ router.delete('/:id', async (req, res) => {
     try {
         const expenseId = parseInt(req.params.id);
         // Check if expense exists
-        const existingExpense = await prisma_1.prisma.expense.findUnique({
+        const existingExpense = await prisma.expense.findUnique({
             where: { id: expenseId },
             include: {
                 otherExpense: true
@@ -478,7 +476,7 @@ router.delete('/:id', async (req, res) => {
         // If expense type is "other", delete associated Fine entry
         if (existingExpense.expense_type === 'other' && existingExpense.otherExpense) {
             // Find and delete the fine associated with this expense
-            const fineToDelete = await prisma_1.prisma.fine.findFirst({
+            const fineToDelete = await prisma.fine.findFirst({
                 where: {
                     delivery_id: existingExpense.delivery_id,
                     fine_type: 'other_expense',
@@ -487,13 +485,13 @@ router.delete('/:id', async (req, res) => {
                 }
             });
             if (fineToDelete) {
-                await prisma_1.prisma.fine.delete({
+                await prisma.fine.delete({
                     where: { id: fineToDelete.id }
                 });
             }
         }
         // Delete the expense (OtherExpense will be deleted automatically due to cascade)
-        await prisma_1.prisma.expense.delete({
+        await prisma.expense.delete({
             where: { id: expenseId }
         });
         res.status(204).send();
@@ -503,5 +501,5 @@ router.delete('/:id', async (req, res) => {
         res.status(400).json({ error: 'Failed to delete expense', details: error.message });
     }
 });
-exports.default = router;
+export default router;
 //# sourceMappingURL=expenses.js.map

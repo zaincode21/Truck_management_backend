@@ -1,8 +1,6 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-const express_1 = require("express");
-const prisma_1 = require("../lib/prisma");
-const router = (0, express_1.Router)();
+import { Router } from 'express';
+import { prisma } from '../lib/prisma.js';
+const router = Router();
 /**
  * @swagger
  * /api/analytics/overview:
@@ -49,7 +47,7 @@ router.get('/overview', async (req, res) => {
                 startDate.setDate(now.getDate() - 30);
         }
         // Revenue trends (daily)
-        const deliveries = await prisma_1.prisma.delivery.findMany({
+        const deliveries = await prisma.delivery.findMany({
             where: {
                 delivery_date: { gte: startDate }
             },
@@ -64,7 +62,7 @@ router.get('/overview', async (req, res) => {
             orderBy: { delivery_date: 'asc' }
         });
         // Expense trends
-        const expenses = await prisma_1.prisma.expense.findMany({
+        const expenses = await prisma.expense.findMany({
             where: {
                 expense_date: { gte: startDate }
             },
@@ -105,7 +103,7 @@ router.get('/overview', async (req, res) => {
             inTransit: deliveries.filter(d => d.status === 'in-transit').length,
         };
         // Top performing trucks
-        const truckPerformance = await prisma_1.prisma.truck.findMany({
+        const truckPerformance = await prisma.truck.findMany({
             include: {
                 deliveries: {
                     where: { delivery_date: { gte: startDate } },
@@ -131,7 +129,7 @@ router.get('/overview', async (req, res) => {
             };
         }).sort((a, b) => b.revenue - a.revenue).slice(0, 10);
         // Top performing employees
-        const employeePerformance = await prisma_1.prisma.employee.findMany({
+        const employeePerformance = await prisma.employee.findMany({
             include: {
                 deliveries: {
                     where: { delivery_date: { gte: startDate } },
@@ -203,7 +201,7 @@ router.get('/overview', async (req, res) => {
  */
 router.get('/revenue', async (req, res) => {
     try {
-        const deliveries = await prisma_1.prisma.delivery.findMany({
+        const deliveries = await prisma.delivery.findMany({
             select: {
                 delivery_date: true,
                 total_income: true,
@@ -242,5 +240,5 @@ router.get('/revenue', async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch revenue analytics' });
     }
 });
-exports.default = router;
+export default router;
 //# sourceMappingURL=analytics.js.map

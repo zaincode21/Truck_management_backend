@@ -1,9 +1,7 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-const express_1 = require("express");
-const prisma_1 = require("../lib/prisma");
+import { Router } from 'express';
+import { prisma } from '../lib/prisma.js';
 // Authentication removed - API is now public
-const router = (0, express_1.Router)();
+const router = Router();
 /**
  * @swagger
  * /api/deliveries:
@@ -33,7 +31,7 @@ router.get('/', async (req, res) => {
         const user = undefined;
         // Build query - no filtering for drivers
         const where = {};
-        const deliveries = await prisma_1.prisma.delivery.findMany({
+        const deliveries = await prisma.delivery.findMany({
             where,
             include: {
                 product: true,
@@ -89,7 +87,7 @@ router.get('/:id', async (req, res) => {
         // Authentication removed - user tracking disabled
         const user = undefined;
         const deliveryId = parseInt(req.params.id);
-        const delivery = await prisma_1.prisma.delivery.findUnique({
+        const delivery = await prisma.delivery.findUnique({
             where: { id: deliveryId },
             include: {
                 product: true,
@@ -222,7 +220,7 @@ async function getNextDeliveryNumber(origin, destination, deliveryDate) {
     // Create prefix: origin-destination-yyyy-mm-dd
     const codePrefix = `${originPart}-${destinationPart}-${dateStr}`;
     // Find all deliveries with the same prefix
-    const existingDeliveries = await prisma_1.prisma.delivery.findMany({
+    const existingDeliveries = await prisma.delivery.findMany({
         where: {
             delivery_code: {
                 startsWith: codePrefix
@@ -287,7 +285,7 @@ async function hasPendingDeliveries(employeeId, turnboyId, truckId, excludeDeliv
     if (excludeDeliveryId) {
         whereClause.AND.push({ id: { not: excludeDeliveryId } });
     }
-    const pendingCount = await prisma_1.prisma.delivery.count({
+    const pendingCount = await prisma.delivery.count({
         where: whereClause
     });
     return pendingCount > 0;
@@ -297,7 +295,7 @@ async function updateResourceStatus(employeeId, turnboyId, truckId, excludeDeliv
     // Check and update employee status
     if (employeeId) {
         const hasPending = await hasPendingDeliveries(employeeId, null, null, excludeDeliveryId);
-        await prisma_1.prisma.employee.update({
+        await prisma.employee.update({
             where: { id: employeeId },
             data: { status: hasPending ? 'in-work' : 'active' }
         });
@@ -305,7 +303,7 @@ async function updateResourceStatus(employeeId, turnboyId, truckId, excludeDeliv
     // Check and update turnboy status
     if (turnboyId) {
         const hasPending = await hasPendingDeliveries(null, turnboyId, null, excludeDeliveryId);
-        await prisma_1.prisma.employee.update({
+        await prisma.employee.update({
             where: { id: turnboyId },
             data: { status: hasPending ? 'in-work' : 'active' }
         });
@@ -313,7 +311,7 @@ async function updateResourceStatus(employeeId, turnboyId, truckId, excludeDeliv
     // Check and update truck status
     if (truckId) {
         const hasPending = await hasPendingDeliveries(null, null, truckId, excludeDeliveryId);
-        await prisma_1.prisma.truck.update({
+        await prisma.truck.update({
             where: { id: truckId },
             data: { status: hasPending ? 'in-work' : 'active' }
         });
@@ -334,14 +332,14 @@ router.post('/', async (req, res) => {
             deliveryCode = await getNextDeliveryNumber(req.body.origin, req.body.destination, deliveryDate);
         }
         // Validate that delivery code is unique
-        const existingDelivery = await prisma_1.prisma.delivery.findUnique({
+        const existingDelivery = await prisma.delivery.findUnique({
             where: { delivery_code: deliveryCode }
         });
         if (existingDelivery) {
             // If provided code exists, regenerate with date
             deliveryCode = await getNextDeliveryNumber(req.body.origin, req.body.destination, deliveryDate);
         }
-        const delivery = await prisma_1.prisma.delivery.create({
+        const delivery = await prisma.delivery.create({
             data: {
                 delivery_code: deliveryCode,
                 product_id: parseInt(req.body.product_id),
@@ -470,7 +468,7 @@ router.put('/:id', async (req, res) => {
         const user = undefined;
         const deliveryId = parseInt(req.params.id);
         // Check if delivery exists
-        const existingDelivery = await prisma_1.prisma.delivery.findUnique({
+        const existingDelivery = await prisma.delivery.findUnique({
             where: { id: deliveryId }
         });
         if (!existingDelivery) {
@@ -483,7 +481,7 @@ router.put('/:id', async (req, res) => {
         const oldEmployeeId = existingDelivery.employee_id;
         const oldTurnboyId = existingDelivery.turnboy_id;
         const oldTruckId = existingDelivery.car_id;
-        const delivery = await prisma_1.prisma.delivery.update({
+        const delivery = await prisma.delivery.update({
             where: { id: parseInt(req.params.id) },
             data: {
                 delivery_code: req.body.delivery_code,
@@ -573,7 +571,7 @@ router.delete('/:id', async (req, res) => {
         const user = undefined;
         const deliveryId = parseInt(req.params.id);
         // Check if delivery exists
-        const existingDelivery = await prisma_1.prisma.delivery.findUnique({
+        const existingDelivery = await prisma.delivery.findUnique({
             where: { id: deliveryId }
         });
         if (!existingDelivery) {
@@ -583,7 +581,7 @@ router.delete('/:id', async (req, res) => {
         const employeeId = existingDelivery.employee_id;
         const turnboyId = existingDelivery.turnboy_id;
         const truckId = existingDelivery.car_id;
-        await prisma_1.prisma.delivery.delete({
+        await prisma.delivery.delete({
             where: { id: deliveryId }
         });
         // Update resource statuses after deletion (only if delivery was pending)
@@ -596,5 +594,5 @@ router.delete('/:id', async (req, res) => {
         res.status(400).json({ error: 'Failed to delete delivery' });
     }
 });
-exports.default = router;
+export default router;
 //# sourceMappingURL=deliveries.js.map

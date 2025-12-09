@@ -4,7 +4,7 @@
  * Run this once after deploying the payment system
  */
 
-import { prisma } from '../lib/prisma';
+import { prisma } from '../lib/prisma.js';
 
 async function initFinePayments() {
   try {
